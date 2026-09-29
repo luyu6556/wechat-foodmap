@@ -1,0 +1,154 @@
+"use client";
+
+import { useState } from "react";
+import { Camera, Check, Heart, MapPin, Navigation, Star, Users, X } from "lucide-react";
+import { api, jsonBody } from "../lib/client-api";
+import { preparePhoto } from "../lib/image-compress";
+import type { PlaceDetailData } from "./types";
+
+type Props = {
+  data: PlaceDetailData | null;
+  loading: boolean;
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+};
+
+function avatar(name: string, color: string, key?: string) {
+  return <span key={key} className="member-avatar" style={{ background: color }} title={name}>{name.slice(0, 1) || "?"}</span>;
+}
+
+export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props) {
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  async function action(kind: "like" | "visit" | "rating", score?: number) {
+    if (!data || busy) return;
+    setBusy(kind);
+    setError("");
+    try {
+      await api(`/api/places/${data.place.id}/actions`, { method: "POST", body: jsonBody({ action: kind, score }) });
+      await onRefresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "操作失败");
+    } finally { setBusy(""); }
+  }
+
+  async function sendComment(event: React.FormEvent) {
+    event.preventDefault();
+    if (!data || !comment.trim() || busy) return;
+    setBusy("comment");
+    setError("");
+    try {
+      await api(`/api/places/${data.place.id}/comments`, { method: "POST", body: jsonBody({ body: comment }) });
+      setComment("");
+      await onRefresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "评论失败");
+    } finally { setBusy(""); }
+  }
+
+  async function upload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!data || !file) return;
+    setBusy("photo");
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("photo", await preparePhoto(file));
+      await api(`/api/places/${data.place.id}/photos`, { method: "POST", body: form });
+      await onRefresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "上传失败");
+    } finally {
+      setBusy("");
+      event.target.value = "";
+    }
+  }
+
+  const place = data?.place;
+  return <>
+    <div className="detail-shade" onClick={onClose} />
+    <section className="detail-panel" role="dialog" aria-modal="true" aria-label={place?.name || "地点详情"}>
+      <div className="detail-scroll">
+        <div className="detail-topline"><span className="detail-drag" /><button className="icon-button detail-close" onClick={onClose} aria-label="关闭"><X size={21} /></button></div>
+        {loading && !data ? <div className="detail-loading">正在打开地点…</div> : !place ? <div className="detail-loading">暂时无法打开这个地点</div> : <>
+          {data.photos.length > 0 ? <div className="detail-photo-hero" onClick={() => setLightbox(data.photos[0].id)} role="button" tabIndex={0}
+            onKeyDown={(event) => { if (event.key === "Enter") setLightbox(data.photos[0].id); }}>
+            <img src={`/api/photos/${data.photos[0].id}`} alt={`${place.name} 的照片`} />
+            <span>{data.photos.length} 张照片</span>
+          </div> : <div className="detail-photo-empty"><img src="/food-empty.png" alt="一碗热腾腾的面" /><span>还没有照片，来分享第一张</span></div>}
+
+          <div className="detail-body">
+            <div className="detail-category">{place.category}</div>
+            <h2>{place.name}</h2>
+            <p className="detail-address"><MapPin size={17} />{place.address || "尚未填写详细地址"}</p>
+            <div className="detail-links">
+              <a href={`https://maps.apple.com/?ll=${place.lat},${place.lng}&q=${encodeURIComponent(place.name)}`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />去这里</a>
+              {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noopener noreferrer">查看{place.sourcePlatform}来源</a>}
+            </div>
+            {!place.sourceUrl && place.sourceText && <details className="source-note"><summary>查看{place.sourcePlatform}分享内容</summary><p>{place.sourceText}</p></details>}
+
+            <div className="detail-stats">
+              <div><strong>{place.averageRating ? Number(place.averageRating).toFixed(1) : "—"}</strong><span>群友评分 · {place.ratingsCount} 人</span></div>
+              <div><strong>{place.visitsCount}</strong><span>人去过</span></div>
+              <div><strong>{place.likesCount}</strong><span>人想去</span></div>
+            </div>
+
+            <div className="detail-actions">
+              <button className={`action-pill ${data.my?.liked ? "active" : ""}`} onClick={() => void action("like")} disabled={!!busy} aria-pressed={!!data.my?.liked}>
+                <Heart size={18} fill={data.my?.liked ? "currentColor" : "none"} />{data.my?.liked ? "已点赞" : "想去 / 点赞"}
+              </button>
+              <button className={`action-pill ${data.my?.visited ? "active" : ""}`} onClick={() => void action("visit")} disabled={!!busy} aria-pressed={!!data.my?.visited}>
+                <Check size={19} />{data.my?.visited ? "我去过了" : "标记去过"}
+              </button>
+            </div>
+
+            <section className="detail-section rating-section">
+              <h3>你给这里打几分？</h3>
+              <div className="rating-row" role="group" aria-label="给地点评分">
+                {[1, 2, 3, 4, 5].map((score) => <button key={score} className={score <= (data.my?.rating || 0) ? "selected" : ""}
+                  onClick={() => void action("rating", score)} disabled={!!busy} aria-label={`${score} 星`} aria-pressed={data.my?.rating === score}>
+                  <Star size={29} fill={score <= (data.my?.rating || 0) ? "currentColor" : "none"} />
+                </button>)}
+                <span>{data.my?.rating ? `我的评分 ${data.my.rating} 星` : "点星星评分"}</span>
+              </div>
+            </section>
+
+            <section className="detail-section">
+              <div className="section-title-row"><h3>谁去过</h3><Users size={18} /></div>
+              {data.visitors.length ? <div className="visitors-list">{data.visitors.map((member) => <div key={member.id} className="visitor">{avatar(member.name, member.color)}<span>{member.name}</span></div>)}</div>
+                : <p className="muted-copy">还没有人标记去过</p>}
+            </section>
+
+            <section className="detail-section">
+              <div className="section-title-row"><h3>群友照片</h3><label className="upload-button"><Camera size={18} />{busy === "photo" ? "上传中…" : "上传照片"}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => void upload(event)} disabled={!!busy} /></label></div>
+              {data.photos.length ? <div className="photo-grid">{data.photos.map((photo) => <button key={photo.id} onClick={() => setLightbox(photo.id)} aria-label={`查看 ${photo.memberName} 上传的照片`}>
+                <img src={`/api/photos/${photo.id}`} alt={`${photo.memberName} 上传的地点照片`} loading="lazy" />
+              </button>)}</div> : <p className="muted-copy">拍过这里？上传一张给大家看看。</p>}
+            </section>
+
+            <section className="detail-section comments-section">
+              <h3>评论 · {data.comments.length}</h3>
+              <form className="comment-form" onSubmit={(event) => void sendComment(event)}>
+                <input className="text-field" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={500} placeholder="聊聊这家店…" aria-label="评论内容" />
+                <button className="primary-button" disabled={!comment.trim() || !!busy}>发送</button>
+              </form>
+              {data.comments.length ? <div className="comment-list">{data.comments.map((item) => <article key={item.id} className="comment-item">
+                {avatar(item.memberName, item.memberColor)}
+                <div><div className="comment-meta"><strong>{item.memberName}</strong><time>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</time></div><p>{item.body}</p></div>
+              </article>)}</div> : <p className="muted-copy">还没有评论，留下第一句吧。</p>}
+            </section>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <p className="detail-credit">由 {place.creatorName} 添加到群地图</p>
+          </div>
+        </>}
+      </div>
+    </section>
+    {lightbox && <div className="lightbox" role="dialog" aria-modal="true" aria-label="查看照片" onClick={() => setLightbox(null)}>
+      <button className="lightbox-close" onClick={() => setLightbox(null)} aria-label="关闭照片"><X size={26} /></button>
+      <img src={`/api/photos/${lightbox}`} alt="地点照片大图" onClick={(event) => event.stopPropagation()} />
+    </div>}
+  </>;
+}
