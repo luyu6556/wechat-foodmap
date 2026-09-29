@@ -5,6 +5,20 @@ export const members = sqliteTable("members", {
   tokenHash: text("token_hash").notNull().unique(),
   name: text("name").notNull(),
   color: text("color").notNull(),
+  wechatOpenId: text("wechat_openid").unique(),
+  isOwner: integer("is_owner").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const memberSessions = sqliteTable("member_sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const oauthStates = sqliteTable("oauth_states", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").references(() => members.id),
   createdAt: integer("created_at").notNull(),
 });
 

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const token = `${crypto.randomUUID()}${crypto.randomUUID()}`;
     await db().prepare("INSERT INTO members (id, token_hash, name, color, created_at) VALUES (?, ?, ?, ?, ?)")
       .bind(id, await hashToken(token), name, color, Date.now()).run();
-    return Response.json({ member: { id, name, color }, token }, { status: 201 });
+    return Response.json({ member: { id, name, color, isOwner: 0, wechatLinked: 0 }, token }, { status: 201 });
   } catch (error) {
     return serverError(error);
   }

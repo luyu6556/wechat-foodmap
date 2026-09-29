@@ -1,4 +1,4 @@
-export type Member = { id: string; name: string; color: string };
+export type Member = { id: string; name: string; color: string; isOwner?: number; wechatLinked?: number };
 
 export type PlaceSummary = {
   id: string;
@@ -11,6 +11,7 @@ export type PlaceSummary = {
   createdAt: number;
   creatorName: string;
   creatorColor: string;
+  creatorId: string;
   likesCount: number;
   visitsCount: number;
   averageRating: number | null;
@@ -20,10 +21,11 @@ export type PlaceSummary = {
 
 export type PlaceDetailData = {
   place: PlaceSummary & { sourceText: string; sourceUrl: string | null };
-  comments: { id: string; body: string; createdAt: number; memberName: string; memberColor: string }[];
-  photos: { id: string; createdAt: number; memberName: string; memberColor: string }[];
+  comments: { id: string; body: string; createdAt: number; memberName: string; memberColor: string; canManage: boolean }[];
+  photos: { id: string; createdAt: number; memberName: string; memberColor: string; canManage: boolean }[];
   visitors: Member[];
   my: { liked: number; visited: number; rating: number | null } | null;
+  canManagePlace: boolean;
 };
 
 export type ResolvedPlace = {

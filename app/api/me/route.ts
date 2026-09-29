@@ -18,7 +18,7 @@ export async function PATCH(request: Request) {
     const color = clean(body.color, 7);
     if (!name || !isValidColor(color)) return fail("请填写昵称并选择颜色");
     await db().prepare("UPDATE members SET name = ?, color = ? WHERE id = ?").bind(name, color, member.id).run();
-    return Response.json({ member: { id: member.id, name, color } });
+    return Response.json({ member: { ...member, name, color } });
   } catch (error) {
     return serverError(error);
   }

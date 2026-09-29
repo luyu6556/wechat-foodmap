@@ -25,12 +25,30 @@ async function remoteTitle(inputUrl: string): Promise<string> {
     if (!response.ok || !(response.headers.get("content-type") || "").includes("text/html")) return "";
     const length = Number(response.headers.get("content-length") || 0);
     if (length > 350_000) return "";
-    const html = (await response.text()).slice(0, 350_000);
-    const title = html.match(/<meta[^>]+(?:property|name)=["']og:title["'][^>]+content=["']([^"']+)/i)?.[1]
-      || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]
-      || "";
-    return title.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    if (!response.body) return "";
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (size <= 350_000) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 350_000) return "";
+        chunks.push(value);
+      }
+    } finally { await reader.cancel().catch(() => {}); }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const html = new TextDecoder().decode(bytes);
+    const tags = html.match(/<meta\b[^>]*>/gi) || [];
+    const tag = tags.find((item) => /(?:property|name)\s*=\s*["']og:title["']/i.test(item));
+    const title = tag?.match(/content\s*=\s*["']([^"']+)/i)?.[1]
+      || html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "";
+    const cleaned = title.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
       .replace(/\s*[-｜|_].*(美团|大众点评).*$/g, "").trim().slice(0, 80);
+    return /^(美团|大众点评|登录|分享)$/i.test(cleaned) ? "" : cleaned;
   }
   return "";
 }

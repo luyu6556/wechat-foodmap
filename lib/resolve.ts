@@ -10,6 +10,16 @@ export type ResolvedPlace = {
 
 const URL_RE = /https?:\/\/[^\s<>\])，。]+/i;
 
+function isHost(host: string, domain: string) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function sharedName(value: string) {
+  const lines = value.split(/\n/).map((line) => line.trim().replace(/^[【\[]|[】\]]$/g, ""))
+    .filter((line) => line && !/^(分享|链接|点击|复制|打开微信|美团|大众点评)$/.test(line));
+  return (lines.at(-1) || "").slice(0, 80);
+}
+
 function validPair(lat: number, lng: number) {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
@@ -48,6 +58,21 @@ export function gcjToWgs(lat: number, lng: number): [number, number] {
   return [lat * 2 - mgLat, lng * 2 - mgLng];
 }
 
+export function wgsToGcj(lat: number, lng: number): [number, number] {
+  if (outsideChina(lat, lng)) return [lat, lng];
+  const a = 6378245;
+  const ee = 0.006693421622965943;
+  const dLat = transformLat(lng - 105, lat - 35);
+  const dLng = transformLng(lng - 105, lat - 35);
+  const radLat = lat / 180 * Math.PI;
+  const magic = 1 - ee * Math.sin(radLat) ** 2;
+  const sqrtMagic = Math.sqrt(magic);
+  return [
+    lat + dLat * 180 / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI),
+    lng + dLng * 180 / (a / sqrtMagic * Math.cos(radLat) * Math.PI),
+  ];
+}
+
 function bdToWgs(lat: number, lng: number): [number, number] {
   const x = lng - 0.0065;
   const y = lat - 0.006;
@@ -65,12 +90,12 @@ function pair(value: string | null, order: "latlng" | "lnglat") {
 }
 
 function sourceName(host: string) {
-  if (host.includes("meituan.com")) return "美团";
-  if (host.includes("dianping.com") || host.includes("dpurl.cn")) return "大众点评";
-  if (host.includes("maps.apple.com")) return "苹果地图";
-  if (host.includes("amap.com")) return "高德地图";
-  if (host.includes("baidu.com")) return "百度地图";
-  if (host.includes("qq.com")) return "腾讯地图";
+  if (isHost(host, "meituan.com")) return "美团";
+  if (isHost(host, "dianping.com") || isHost(host, "dpurl.cn")) return "大众点评";
+  if (host === "maps.apple.com") return "苹果地图";
+  if (isHost(host, "amap.com")) return "高德地图";
+  if (isHost(host, "baidu.com")) return "百度地图";
+  if (isHost(host, "qq.com")) return "腾讯地图";
   return "网页链接";
 }
 
@@ -78,10 +103,11 @@ export function resolveSharedText(input: string): ResolvedPlace {
   const raw = input.trim().slice(0, 3000);
   const mini = raw.match(/#小程序:\/\/([^\s\n]+)/);
   if (mini) {
+    const name = sharedName(raw.slice(0, mini.index));
     return {
-      name: "", address: "", lat: null, lng: null, sourceUrl: null,
+      name, address: "", lat: null, lng: null, sourceUrl: null,
       sourcePlatform: "微信小程序",
-      message: "已识别微信小程序口令。口令本身不包含店名和位置，请补填后在地图上选点。",
+      message: name ? "已从分享文案提取名称。小程序口令不含公开坐标，请核对并在地图上选点。" : "已识别微信小程序口令。口令本身不包含店名和位置，请补填后在地图上选点。",
     };
   }
 
@@ -91,7 +117,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
   }
 
   let url: URL;
-  try { url = new URL(match[0]); } catch {
+  try { url = new URL(match[0].replace(/[.,;!?]+$/, "")); } catch {
     return { name: "", address: "", lat: null, lng: null, sourceUrl: null, sourcePlatform: "网页链接", message: "链接格式无法识别，请手动填写。" };
   }
   const host = url.hostname.toLowerCase();
@@ -104,15 +130,15 @@ export function resolveSharedText(input: string): ResolvedPlace {
   if (host === "maps.apple.com") {
     point = pair(params.get("coordinate") || params.get("ll"), "latlng");
     name = params.get("name") || params.get("q") || name;
-  } else if (host.endsWith("amap.com")) {
+  } else if (isHost(host, "amap.com")) {
     const parsed = pair(params.get("position") || params.get("center") || params.get("location"), "lnglat");
     point = parsed ? gcjToWgs(...parsed) : null;
     name = params.get("name") || params.get("keyword") || name;
-  } else if (host.endsWith("baidu.com")) {
+  } else if (isHost(host, "baidu.com")) {
     const parsed = pair(params.get("location") || params.get("latlng"), "latlng");
     point = parsed ? bdToWgs(...parsed) : null;
     name = params.get("title") || name;
-  } else if (host.endsWith("qq.com")) {
+  } else if (isHost(host, "qq.com")) {
     const marker = params.get("marker") || "";
     const coord = marker.match(/coord:([-\d.]+),([-\d.]+)/);
     const parsed = coord ? pair(`${coord[1]},${coord[2]}`, "latlng") : null;
@@ -121,8 +147,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
   }
 
   if (!name) {
-    const before = raw.slice(0, match.index).replace(/[\[\]【】\s:：]+$/g, "").trim();
-    if (before && !/^(分享|链接|点击|复制)/.test(before)) name = before.split("\n").at(-1)?.slice(0, 80) || "";
+    name = sharedName(raw.slice(0, match.index).replace(/[:：]+$/g, ""));
   }
   if (name.startsWith("http")) name = "";
   return {

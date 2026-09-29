@@ -3,19 +3,20 @@
 import { useState } from "react";
 import { Crosshair, Link2, MapPin, Sparkles, X } from "lucide-react";
 import { api, ApiError, jsonBody } from "../lib/client-api";
-import MapCanvas from "./map-canvas";
+import MapCanvas from "./shared-map";
 import type { ResolvedPlace } from "./types";
 
-type Props = { onClose: () => void; onSaved: (id: string) => void };
+type EditablePlace = { id: string; name: string; address: string; category: "美食" | "玩乐"; lat: number; lng: number };
+type Props = { onClose: () => void; onSaved: (id: string) => void; initial?: EditablePlace };
 
-export default function AddPlaceDialog({ onClose, onSaved }: Props) {
+export default function AddPlaceDialog({ onClose, onSaved, initial }: Props) {
   const [sourceText, setSourceText] = useState("");
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourcePlatform, setSourcePlatform] = useState("手动输入");
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-  const [category, setCategory] = useState<"美食" | "玩乐">("美食");
-  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [name, setName] = useState(initial?.name || "");
+  const [address, setAddress] = useState(initial?.address || "");
+  const [category, setCategory] = useState<"美食" | "玩乐">(initial?.category || "美食");
+  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(initial ? { lat: initial.lat, lng: initial.lng } : null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [resolving, setResolving] = useState(false);
@@ -57,11 +58,13 @@ export default function AddPlaceDialog({ onClose, onSaved }: Props) {
     setSaving(true);
     setError("");
     try {
-      const result = await api<{ id: string }>("/api/places", {
-        method: "POST",
+      const result = await api<{ id?: string }>(initial ? `/api/places/${initial.id}` : "/api/places", {
+        method: initial ? "PATCH" : "POST",
         body: jsonBody({ name, address, category, lat: point.lat, lng: point.lng, sourceText, sourceUrl, sourcePlatform }),
       });
-      onSaved(result.id);
+      const savedId = result.id || initial?.id;
+      if (!savedId) throw new Error("保存成功，但没有返回地点编号，请刷新页面查看");
+      onSaved(savedId);
     } catch (cause) {
       if (cause instanceof ApiError && cause.existingId) {
         onSaved(cause.existingId);
@@ -76,12 +79,12 @@ export default function AddPlaceDialog({ onClose, onSaved }: Props) {
   return <div className="dialog-backdrop add-backdrop" role="presentation">
     <section className="add-dialog" role="dialog" aria-modal="true" aria-labelledby="add-title">
       <header className="sheet-header">
-        <div><p className="eyebrow">收进群地图</p><h2 id="add-title">添加地点</h2></div>
+        <div><h2 id="add-title">{initial ? "编辑地点" : "添加地点"}</h2></div>
         <button className="icon-button" onClick={onClose} aria-label="关闭"><X size={22} /></button>
       </header>
       <form onSubmit={(event) => void save(event)}>
         <div className="add-scroll">
-          <div className="import-panel">
+          {!initial && <div className="import-panel">
             <div className="section-heading"><Link2 size={19} /><strong>从分享内容导入</strong></div>
             <p>粘贴美团、大众点评或地图分享内容。没有链接也可以直接填写。</p>
             <textarea className="text-field share-field" value={sourceText} maxLength={3000}
@@ -91,7 +94,7 @@ export default function AddPlaceDialog({ onClose, onSaved }: Props) {
               <Sparkles size={17} />{resolving ? "识别中…" : "识别分享内容"}
             </button>
             {notice && <p className="import-notice" role="status">{notice}</p>}
-          </div>
+          </div>}
 
           <div className="field-grid">
             <div className="field-block">
@@ -128,7 +131,7 @@ export default function AddPlaceDialog({ onClose, onSaved }: Props) {
           </details>
           {error && <p className="form-error" role="alert">{error}</p>}
         </div>
-        <div className="sheet-footer"><button className="primary-button full" disabled={saving}>{saving ? "保存中…" : "保存到群地图"}</button></div>
+        <div className="sheet-footer"><button className="primary-button full" disabled={saving}>{saving ? "保存中…" : initial ? "保存修改" : "保存到群地图"}</button></div>
       </form>
     </section>
   </div>;

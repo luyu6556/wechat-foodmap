@@ -4,7 +4,7 @@ export async function GET() {
   try {
     const rows = await db().prepare(`
       SELECT p.id, p.name, p.address, p.category, p.lat, p.lng, p.source_platform AS sourcePlatform,
-        p.created_at AS createdAt, m.name AS creatorName, m.color AS creatorColor,
+        p.created_at AS createdAt, p.created_by AS creatorId, m.name AS creatorName, m.color AS creatorColor,
         (SELECT COUNT(*) FROM likes l WHERE l.place_id = p.id) AS likesCount,
         (SELECT COUNT(*) FROM visits v WHERE v.place_id = p.id) AS visitsCount,
         (SELECT ROUND(AVG(r.score), 1) FROM ratings r WHERE r.place_id = p.id) AS averageRating,

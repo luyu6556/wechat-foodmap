@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-export type Member = { id: string; name: string; color: string };
+export type Member = { id: string; name: string; color: string; isOwner: number; wechatLinked: number };
 
 export function db(): D1Database {
   if (!env.DB) throw new Error("数据库暂不可用，请稍后重试");
@@ -18,10 +18,23 @@ export async function hashToken(token: string) {
 }
 
 export async function memberFromRequest(request: Request): Promise<Member | null> {
+  const cookieToken = request.headers.get("cookie")?.match(/(?:^|;\s*)food-map-session=([^;]+)/)?.[1];
+  if (cookieToken && cookieToken.length <= 200) {
+    const fromSession = await db().prepare(`SELECT m.id, m.name, m.color, m.is_owner AS isOwner,
+      (m.wechat_openid IS NOT NULL) AS wechatLinked FROM member_sessions s
+      JOIN members m ON m.id = s.member_id WHERE s.token_hash = ? AND s.created_at > ?`)
+      .bind(await hashToken(cookieToken), Date.now() - 90 * 24 * 60 * 60_000).first<Member>();
+    if (fromSession) return fromSession;
+  }
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
   if (!token || token.length > 200) return null;
-  return await db().prepare("SELECT id, name, color FROM members WHERE token_hash = ?")
+  return await db().prepare(`SELECT id, name, color, is_owner AS isOwner,
+    (wechat_openid IS NOT NULL) AS wechatLinked FROM members WHERE token_hash = ?`)
     .bind(await hashToken(token)).first<Member>();
+}
+
+export function canManage(member: Member | null, creatorId: string) {
+  return !!member && (member.id === creatorId || !!member.isOwner);
 }
 
 export function fail(message: string, status = 400) {

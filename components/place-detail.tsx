@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, Check, Heart, MapPin, Navigation, Star, Users, X } from "lucide-react";
+import { Camera, Check, Heart, MapPin, MoreHorizontal, Navigation, Star, Trash2, Users, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
 import { preparePhoto } from "../lib/image-compress";
+import AddPlaceDialog from "./add-place-dialog";
 import type { PlaceDetailData } from "./types";
 
 type Props = {
@@ -11,17 +12,58 @@ type Props = {
   loading: boolean;
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  onDeleted: () => Promise<void>;
 };
 
 function avatar(name: string, color: string, key?: string) {
   return <span key={key} className="member-avatar" style={{ background: color }} title={name}>{name.slice(0, 1) || "?"}</span>;
 }
 
-export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props) {
+export default function PlaceDetail({ data, loading, onClose, onRefresh, onDeleted }: Props) {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+
+  async function deletePlace() {
+    if (!data || !window.confirm(`永久删除“${data.place.name}”及其照片和评论？`)) return;
+    setBusy("delete-place"); setError("");
+    try {
+      await api(`/api/places/${data.place.id}`, { method: "DELETE" });
+      await onDeleted();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "删除失败"); }
+    finally { setBusy(""); }
+  }
+
+  async function deletePhoto(id: string) {
+    if (!window.confirm("永久删除这张照片？")) return;
+    setBusy(`photo-${id}`); setError("");
+    try { await api(`/api/photos/${id}`, { method: "DELETE" }); await onRefresh(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "删除照片失败"); }
+    finally { setBusy(""); }
+  }
+
+  async function deleteComment(id: string) {
+    if (!window.confirm("永久删除这条评论？")) return;
+    setBusy(`comment-${id}`); setError("");
+    try { await api(`/api/comments/${id}`, { method: "DELETE" }); await onRefresh(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "删除评论失败"); }
+    finally { setBusy(""); }
+  }
+
+  async function saveCommentEdit(id: string) {
+    if (!commentDraft.trim()) return;
+    setBusy(`comment-${id}`); setError("");
+    try {
+      await api(`/api/comments/${id}`, { method: "PATCH", body: jsonBody({ body: commentDraft }) });
+      setEditingComment(null);
+      await onRefresh();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "修改评论失败"); }
+    finally { setBusy(""); }
+  }
 
   async function action(kind: "like" | "visit" | "rating", score?: number) {
     if (!data || busy) return;
@@ -72,7 +114,13 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props
     <div className="detail-shade" onClick={onClose} />
     <section className="detail-panel" role="dialog" aria-modal="true" aria-label={place?.name || "地点详情"}>
       <div className="detail-scroll">
-        <div className="detail-topline"><span className="detail-drag" /><button className="icon-button detail-close" onClick={onClose} aria-label="关闭"><X size={21} /></button></div>
+        <div className="detail-topline"><span className="detail-drag" /><div className="detail-top-actions">
+          {data?.canManagePlace && <details className="manage-menu"><summary aria-label="管理地点"><MoreHorizontal size={22} /></summary><div>
+            <button onClick={() => setEditOpen(true)}>编辑地点</button>
+            <button className="danger" onClick={() => void deletePlace()}>删除地点</button>
+          </div></details>}
+          <button className="icon-button detail-close" onClick={onClose} aria-label="关闭"><X size={21} /></button>
+        </div></div>
         {loading && !data ? <div className="detail-loading">正在打开地点…</div> : !place ? <div className="detail-loading">暂时无法打开这个地点</div> : <>
           {data.photos.length > 0 ? <div className="detail-photo-hero" onClick={() => setLightbox(data.photos[0].id)} role="button" tabIndex={0}
             onKeyDown={(event) => { if (event.key === "Enter") setLightbox(data.photos[0].id); }}>
@@ -85,7 +133,7 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props
             <h2>{place.name}</h2>
             <p className="detail-address"><MapPin size={17} />{place.address || "尚未填写详细地址"}</p>
             <div className="detail-links">
-              <a href={`https://maps.apple.com/?ll=${place.lat},${place.lng}&q=${encodeURIComponent(place.name)}`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />去这里</a>
+              <a href={`https://uri.amap.com/marker?position=${place.lng},${place.lat}&coordinate=wgs84&name=${encodeURIComponent(place.name)}&src=group-food-map&callnative=0`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />地图查看</a>
               {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noopener noreferrer">查看{place.sourcePlatform}来源</a>}
             </div>
             {!place.sourceUrl && place.sourceText && <details className="source-note"><summary>查看{place.sourcePlatform}分享内容</summary><p>{place.sourceText}</p></details>}
@@ -124,9 +172,9 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props
 
             <section className="detail-section">
               <div className="section-title-row"><h3>群友照片</h3><label className="upload-button"><Camera size={18} />{busy === "photo" ? "上传中…" : "上传照片"}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => void upload(event)} disabled={!!busy} /></label></div>
-              {data.photos.length ? <div className="photo-grid">{data.photos.map((photo) => <button key={photo.id} onClick={() => setLightbox(photo.id)} aria-label={`查看 ${photo.memberName} 上传的照片`}>
+              {data.photos.length ? <div className="photo-grid">{data.photos.map((photo) => <div className="photo-cell" key={photo.id}><button onClick={() => setLightbox(photo.id)} aria-label={`查看 ${photo.memberName} 上传的照片`}>
                 <img src={`/api/photos/${photo.id}`} alt={`${photo.memberName} 上传的地点照片`} loading="lazy" />
-              </button>)}</div> : <p className="muted-copy">拍过这里？上传一张给大家看看。</p>}
+              </button>{photo.canManage && <button className="photo-delete" onClick={() => void deletePhoto(photo.id)} aria-label="删除照片" disabled={!!busy}><Trash2 size={15} /></button>}</div>)}</div> : <p className="muted-copy">拍过这里？上传一张给大家看看。</p>}
             </section>
 
             <section className="detail-section comments-section">
@@ -137,7 +185,10 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props
               </form>
               {data.comments.length ? <div className="comment-list">{data.comments.map((item) => <article key={item.id} className="comment-item">
                 {avatar(item.memberName, item.memberColor)}
-                <div><div className="comment-meta"><strong>{item.memberName}</strong><time>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</time></div><p>{item.body}</p></div>
+                <div><div className="comment-meta"><strong>{item.memberName}</strong><time>{new Date(item.createdAt).toLocaleDateString("zh-CN")}</time></div>
+                  {editingComment === item.id ? <div className="comment-edit"><input className="text-field" value={commentDraft} maxLength={500} onChange={(event) => setCommentDraft(event.target.value)} aria-label="修改评论" /><button onClick={() => void saveCommentEdit(item.id)} disabled={!commentDraft.trim() || !!busy}>保存</button><button onClick={() => setEditingComment(null)}>取消</button></div> : <p>{item.body}</p>}
+                  {item.canManage && editingComment !== item.id && <div className="comment-controls"><button onClick={() => { setEditingComment(item.id); setCommentDraft(item.body); }}>编辑</button><button onClick={() => void deleteComment(item.id)} disabled={!!busy}>删除</button></div>}
+                </div>
               </article>)}</div> : <p className="muted-copy">还没有评论，留下第一句吧。</p>}
             </section>
             {error && <p className="form-error" role="alert">{error}</p>}
@@ -150,5 +201,6 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh }: Props
       <button className="lightbox-close" onClick={() => setLightbox(null)} aria-label="关闭照片"><X size={26} /></button>
       <img src={`/api/photos/${lightbox}`} alt="地点照片大图" onClick={(event) => event.stopPropagation()} />
     </div>}
+    {editOpen && data && <AddPlaceDialog initial={data.place} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); void onRefresh(); }} />}
   </>;
 }
