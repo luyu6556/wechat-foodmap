@@ -1,4 +1,4 @@
-import { bucket, canManage, clean, db, fail, memberFromRequest, parseJson, serverError } from "../../../../lib/server";
+import { bucket, canManage, clean, db, fail, memberFromRequest, optionalNumber, parseJson, serverError } from "../../../../lib/server";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -9,6 +9,8 @@ export async function GET(request: Request, context: Context) {
     const place = await database.prepare(`
       SELECT p.id, p.name, p.address, p.category, p.lat, p.lng,
         p.source_text AS sourceText, p.source_url AS sourceUrl, p.source_platform AS sourcePlatform,
+        p.cuisine, p.platform_rating AS platformRating, p.rating_count AS ratingCount,
+        p.avg_price AS avgPrice, p.source_raw AS sourceRaw,
         p.created_at AS createdAt, p.created_by AS creatorId, m.name AS creatorName, m.color AS creatorColor,
         (SELECT COUNT(*) FROM likes l WHERE l.place_id = p.id) AS likesCount,
         (SELECT COUNT(*) FROM visits v WHERE v.place_id = p.id) AS visitsCount,
@@ -61,10 +63,16 @@ export async function PATCH(request: Request, context: Context) {
     const category = body.category === "玩乐" ? "玩乐" : "美食";
     const lat = Number(body.lat);
     const lng = Number(body.lng);
+    // Editing is also how a wrong screenshot reading gets corrected, so these are writable.
+    const cuisine = clean(body.cuisine, 20);
+    const platformRating = optionalNumber(body.platformRating, 0, 5, false);
+    const ratingCount = optionalNumber(body.ratingCount, 0, 10_000_000, true);
+    const avgPrice = optionalNumber(body.avgPrice, 0, 100_000, true);
     if (!name) return fail("请填写地点名称");
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return fail("请在地图上选择地点位置");
-    await database.prepare("UPDATE places SET name = ?, address = ?, category = ?, lat = ?, lng = ?, updated_at = ? WHERE id = ?")
-      .bind(name, address, category, lat, lng, Date.now(), id).run();
+    await database.prepare(`UPDATE places SET name = ?, address = ?, category = ?, lat = ?, lng = ?,
+      cuisine = ?, platform_rating = ?, rating_count = ?, avg_price = ?, updated_at = ? WHERE id = ?`)
+      .bind(name, address, category, lat, lng, cuisine, platformRating, ratingCount, avgPrice, Date.now(), id).run();
     return Response.json({ ok: true });
   } catch (error) {
     return serverError(error);

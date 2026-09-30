@@ -56,6 +56,16 @@ export function clean(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
+// Optional numeric field: absent/blank/garbage/out-of-range all become null. Used for the
+// third-party values read off a screenshot, where "the screenshot does not show it" must
+// stay distinguishable from a real value — never coerce a missing评分 into 0.
+export function optionalNumber(value: unknown, min: number, max: number, integer: boolean) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
+  return integer ? Math.round(parsed) : Math.round(parsed * 10) / 10;
+}
+
 export function isValidColor(value: string) {
   return /^#[0-9a-fA-F]{6}$/.test(value);
 }

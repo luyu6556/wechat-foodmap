@@ -153,8 +153,8 @@ export default function FoodMapApp() {
           <div className="compact-place-list">{shownPlaces.map((place) => <button key={place.id} className="compact-place-row" onClick={() => openDetail(place.id)}>
             {place.coverPhotoId ? <img className="compact-place-cover" src={`/api/photos/${place.coverPhotoId}`} alt="" loading="lazy" />
               : <span className="compact-place-cover compact-place-placeholder"><MapPinned size={23} /></span>}
-            <span className="compact-place-content"><strong>{place.name}</strong><span className="compact-place-address">{place.address || "查看地图位置"}</span>
-              <span className="compact-place-meta"><Star size={14} fill="currentColor" />{place.averageRating ? Number(place.averageRating).toFixed(1) : "待评分"}<span className="meta-divider" /><Users size={14} />{place.visitsCount} 人去过</span>
+            <span className="compact-place-content"><strong>{place.name}</strong><span className="compact-place-address">{place.cuisine ? `${place.cuisine} · ` : ""}{place.address || "查看地图位置"}</span>
+              <span className="compact-place-meta"><Star size={14} fill="currentColor" />{place.averageRating ? Number(place.averageRating).toFixed(1) : "待评分"}<span className="meta-divider" /><Users size={14} />{place.visitsCount} 人去过{place.avgPrice != null && <><span className="meta-divider" />人均 ¥{place.avgPrice}</>}{place.platformRating != null && <><span className="meta-divider" />平台 {Number(place.platformRating).toFixed(1)}</>}</span>
               <span className="compact-place-creator"><span className="member-avatar" style={{ background: place.creatorColor }}>{place.creatorName.slice(0, 1) || "?"}</span>{place.creatorName} 添加</span></span>
           </button>)}</div>
       </section> : <section className="collection-map" aria-label="群友收藏地图">

@@ -1,9 +1,10 @@
-import { clean, db, fail, memberFromRequest, parseJson, serverError } from "../../../lib/server";
+import { clean, db, fail, memberFromRequest, optionalNumber, parseJson, serverError } from "../../../lib/server";
 
 export async function GET() {
   try {
     const rows = await db().prepare(`
       SELECT p.id, p.name, p.address, p.category, p.lat, p.lng, p.source_platform AS sourcePlatform,
+        p.cuisine, p.platform_rating AS platformRating, p.rating_count AS ratingCount, p.avg_price AS avgPrice,
         p.created_at AS createdAt, p.created_by AS creatorId, m.name AS creatorName, m.color AS creatorColor,
         (SELECT COUNT(*) FROM likes l WHERE l.place_id = p.id) AS likesCount,
         (SELECT COUNT(*) FROM visits v WHERE v.place_id = p.id) AS visitsCount,
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
     const lng = Number(body.lng);
     const sourceText = clean(body.sourceText, 3000);
     const sourcePlatform = clean(body.sourcePlatform, 30) || "手动输入";
+    const cuisine = clean(body.cuisine, 20);
+    const sourceRaw = clean(body.sourceRaw, 600);
+    const platformRating = optionalNumber(body.platformRating, 0, 5, false);
+    const ratingCount = optionalNumber(body.ratingCount, 0, 10_000_000, true);
+    const avgPrice = optionalNumber(body.avgPrice, 0, 100_000, true);
     let sourceUrl = clean(body.sourceUrl, 2000) || null;
     if (sourceUrl) {
       try {
@@ -50,9 +56,11 @@ export async function POST(request: Request) {
     const id = crypto.randomUUID();
     const now = Date.now();
     await database.prepare(`INSERT INTO places
-      (id, name, address, category, lat, lng, source_text, source_url, source_platform, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, name, address, category, lat, lng, sourceText, sourceUrl, sourcePlatform, member.id, now, now).run();
+      (id, name, address, category, lat, lng, source_text, source_url, source_platform,
+        cuisine, platform_rating, rating_count, avg_price, source_raw, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, name, address, category, lat, lng, sourceText, sourceUrl, sourcePlatform,
+        cuisine, platformRating, ratingCount, avgPrice, sourceRaw, member.id, now, now).run();
     return Response.json({ id }, { status: 201 });
   } catch (error) {
     return serverError(error);

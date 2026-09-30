@@ -15,6 +15,13 @@
       "when": 1790690125130,
       "tag": "0001_narrow_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790779315606,
+      "tag": "0002_cuddly_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

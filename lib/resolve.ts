@@ -73,7 +73,7 @@ export function wgsToGcj(lat: number, lng: number): [number, number] {
   ];
 }
 
-function bdToWgs(lat: number, lng: number): [number, number] {
+export function bdToWgs(lat: number, lng: number): [number, number] {
   const x = lng - 0.0065;
   const y = lat - 0.006;
   const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * Math.PI * 3000 / 180);

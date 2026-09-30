@@ -32,6 +32,14 @@ export const places = sqliteTable("places", {
   sourceText: text("source_text").notNull().default(""),
   sourceUrl: text("source_url"),
   sourcePlatform: text("source_platform").notNull().default("manual"),
+  // 菜系/品类，例如「新疆菜」「东北家常菜」。与 category（美食/玩乐）语义不同，故单列。
+  cuisine: text("cuisine").notNull().default(""),
+  // 以下三项来自截图识别的第三方平台数据，都可能为空——截图上没有就必须留空，不能编造。
+  platformRating: real("platform_rating"),
+  ratingCount: integer("rating_count"),
+  avgPrice: integer("avg_price"),
+  // 模型读到的原始文字，供用户核对识别是否读错。
+  sourceRaw: text("source_raw").notNull().default(""),
   createdBy: text("created_by").notNull().references(() => members.id),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),

@@ -132,11 +132,17 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh, onDelet
             <div className="detail-category">{place.category}</div>
             <h2>{place.name}</h2>
             <p className="detail-address"><MapPin size={17} />{place.address || "尚未填写详细地址"}</p>
+            {(place.cuisine || place.platformRating != null || place.avgPrice != null) && <div className="platform-strip">
+              {place.cuisine && <span>菜系 <b>{place.cuisine}</b></span>}
+              {place.platformRating != null && <span>平台评分 <b>{Number(place.platformRating).toFixed(1)}</b>{place.ratingCount ? ` · ${place.ratingCount} 条` : ""}</span>}
+              {place.avgPrice != null && <span>人均 <b>¥{place.avgPrice}</b></span>}
+            </div>}
             <div className="detail-links">
               <a href={`https://uri.amap.com/marker?position=${place.lng},${place.lat}&coordinate=wgs84&name=${encodeURIComponent(place.name)}&src=group-food-map&callnative=0`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />地图查看</a>
               {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noopener noreferrer">查看{place.sourcePlatform}来源</a>}
             </div>
             {!place.sourceUrl && place.sourceText && <details className="source-note"><summary>查看{place.sourcePlatform}分享内容</summary><p>{place.sourceText}</p></details>}
+            {place.sourceRaw && <details className="source-note"><summary>查看截图识别到的原文</summary><p>{place.sourceRaw}</p></details>}
 
             <div className="detail-stats">
               <div><strong>{place.averageRating ? Number(place.averageRating).toFixed(1) : "—"}</strong><span>群友评分 · {place.ratingsCount} 人</span></div>

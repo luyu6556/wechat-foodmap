@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,6 @@ const configPath = path.join(projectRoot, "dist/server/wrangler.json");
 // Verified 2026-09-30: rows survive both across requests and across re-deploys.
 const stateDir = process.env.FOOD_MAP_STATE_DIR || path.join(os.homedir(), ".qunliao-food-map", "state");
 const port = process.env.PORT || "3000";
-const filesToServe = ["0000_robust_loners.sql", "0001_narrow_justin_hammer.sql"];
 
 function run(args) {
   const result = spawnSync(process.execPath, [wranglerCli, ...args], {
@@ -40,13 +39,30 @@ if (!existsSync(configPath)) {
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
 
-// Apply the versioned migrations exactly once per state directory. Both files are
-// already-live migrations and must never be edited; new structure means a new file.
+// Apply versioned migrations incrementally, exactly once per state directory.
+// Migration files are append-only history: never edit an existing file, add a new one.
+// The marker records WHICH files were applied, one per line — not merely that the step
+// ran once — because a state directory that already exists must still receive migrations
+// added later. A timestamp-only marker would silently skip every future migration, which
+// would leave the live database missing columns and break queries.
+const drizzleDir = path.join(projectRoot, "drizzle");
+const allMigrations = readdirSync(drizzleDir).filter((name) => name.endsWith(".sql")).sort();
+// Markers written before 2026-09-30 contained only an ISO timestamp. Everything that
+// existed back then had already been applied, so seed the list rather than re-running it
+// (re-running `ALTER TABLE ... ADD COLUMN` or `CREATE TABLE` would fail).
+const LEGACY_APPLIED = ["0000_robust_loners.sql", "0001_narrow_justin_hammer.sql"];
 const marker = path.join(stateDir, ".migrations-applied");
-if (!existsSync(marker)) {
-  console.log("[food-map] fresh state directory, applying migrations");
-  for (const file of filesToServe) {
-    const sqlPath = path.join(projectRoot, "drizzle", file);
+const applied = new Set();
+if (existsSync(marker)) {
+  const lines = readFileSync(marker, "utf8").split("\n").map((line) => line.trim()).filter(Boolean);
+  const isFileList = lines.length > 0 && lines.every((line) => line.endsWith(".sql"));
+  for (const name of isFileList ? lines : LEGACY_APPLIED) applied.add(name);
+}
+const pending = allMigrations.filter((name) => !applied.has(name));
+if (pending.length) {
+  console.log(`[food-map] applying migrations: ${pending.join(", ")}`);
+  for (const file of pending) {
+    const sqlPath = path.join(drizzleDir, file);
     if (!existsSync(sqlPath)) throw new Error(`missing migration file: ${sqlPath}`);
     const status = run([
       "d1", "execute", "DB",
@@ -56,8 +72,9 @@ if (!existsSync(marker)) {
       `--file=${sqlPath}`,
     ]);
     if (status !== 0) process.exit(status);
+    applied.add(file);
   }
-  writeFileSync(marker, `${new Date().toISOString()}\n`);
+  writeFileSync(marker, `${[...applied].sort().join("\n")}\n`);
   console.log("[food-map] migrations applied");
 } else {
   console.log("[food-map] migrations already applied, reusing existing data");

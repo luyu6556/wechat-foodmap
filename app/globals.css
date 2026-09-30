@@ -323,3 +323,14 @@ body { background: #f4f5f3; }
 .amap-food-pin { display: block; position: relative; width: 30px; height: 30px; background: var(--pin-color, var(--accent)); border: 3px solid #fff; border-radius: 50% 50% 50% 6px; transform: rotate(-45deg); box-shadow: 0 3px 10px #172c2960; }
 .amap-food-pin::after { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: #fff; }
 .amap-food-pin.selected { width: 36px; height: 36px; box-shadow: 0 0 0 4px #fff8, 0 3px 12px #172c296b; }
+
+/* 截图识别入口：等宽两列字段、截图缩略图与提示文案 */
+.field-grid.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.field-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: -3px 0 15px; }
+.import-panel .shot-row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.import-panel .shot-row .secondary-button { margin-top: 0; position: relative; overflow: hidden; cursor: pointer; }
+.import-panel .shot-row .secondary-button input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.import-panel .shot-row .secondary-button.disabled { opacity: .55; pointer-events: none; }
+.shot-preview { width: 44px; height: 44px; flex: 0 0 auto; object-fit: cover; border: 1px solid #f0e7df; border-radius: 9px; }
+.platform-strip { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 9px 0 0; color: var(--muted); font-size: 13px; }
+.platform-strip b { color: var(--ink); font-weight: 750; }
