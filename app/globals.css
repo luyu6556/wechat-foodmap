@@ -31,7 +31,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .header-actions { gap: 8px; }
 .header-share, .profile-trigger { background: #fff; border: 0; min-height: 44px; gap: 8px; color: var(--ink); font-size: 14px; font-weight: 650; border-radius: 12px; padding: 4px 10px; }
 .header-share:hover, .profile-trigger:hover { background: var(--soft); }
-.member-avatar { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; color: #fff; font-size: 15px; font-weight: 750; }
+.member-avatar { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; font-weight: 750; }
 .profile-trigger-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .main-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; height: calc(100dvh - 72px); min-height: 560px; }
@@ -95,7 +95,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .profile-dialog { position: relative; width: min(100%, 400px); padding: 28px; border-radius: 22px; background: #fff; box-shadow: 0 25px 70px #07170f55; }
 .dialog-close { position: absolute; top: 14px; right: 14px; }
 .profile-illustration { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; margin-bottom: 21px; background: var(--accent-soft); border-radius: 18px; }
-.profile-illustration span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; font-size: 20px; font-weight: 800; }
+.profile-illustration span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; font-weight: 800; }
 .profile-dialog h2, .add-dialog h2 { font-size: 25px; line-height: 1.3; letter-spacing: -.035em; margin: 0; }
 .dialog-intro { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 9px 0 25px; }
 .field-label { display: block; font-size: 14px; font-weight: 750; margin-bottom: 8px; }
@@ -106,7 +106,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 textarea.text-field { resize: vertical; min-height: 86px; }
 .color-label { margin-top: 21px; }
 .color-grid { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 25px; }
-.color-option { display: grid; place-items: center; width: 38px; height: 38px; border: 3px solid #fff; border-radius: 50%; color: #fff; box-shadow: 0 0 0 1px #dfe5df; }
+.color-option { display: grid; place-items: center; width: 38px; height: 38px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #dfe5df; }
 .color-option.active { box-shadow: 0 0 0 2px var(--ink); }
 .form-error { color: #b63e29; font-size: 14px; line-height: 1.45; background: #fff1ed; border-radius: 9px; padding: 9px 11px; margin: 12px 0; }
 

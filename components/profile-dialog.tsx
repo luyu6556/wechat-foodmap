@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { Check, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
+import { MEMBER_COLORS, contrastText, memberColorStyle, normalizeColor } from "../lib/color";
 import type { Member } from "./types";
-
-const colors = ["#E75B35", "#2D7A72", "#4169A8", "#9360A5", "#D58B26", "#C75574", "#41604D", "#3F5969"];
 
 type Props = {
   current: Member | null;
@@ -15,7 +14,7 @@ type Props = {
 
 export default function ProfileDialog({ current, onClose, onSaved }: Props) {
   const [name, setName] = useState(current?.name || "");
-  const [color, setColor] = useState(current?.color || colors[0]);
+  const [color, setColor] = useState(current ? normalizeColor(current.color) : MEMBER_COLORS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ownerCode, setOwnerCode] = useState("");
@@ -56,7 +55,7 @@ export default function ProfileDialog({ current, onClose, onSaved }: Props) {
   return <div className="dialog-backdrop" role="presentation">
     <section className="profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-title">
       {onClose && <button className="icon-button dialog-close" onClick={onClose} aria-label="关闭"><X size={20} /></button>}
-      <div className="profile-illustration"><span style={{ background: color }}>{name.trim().slice(0, 1) || "你"}</span></div>
+      <div className="profile-illustration"><span style={memberColorStyle(color)}>{name.trim().slice(0, 1) || "你"}</span></div>
       <p className="eyebrow">加入这张地图</p>
       <h2 id="profile-title">大家怎么称呼你？</h2>
       <p className="dialog-intro">昵称和颜色会显示在你添加的地点、照片和评论旁。</p>
@@ -65,8 +64,8 @@ export default function ProfileDialog({ current, onClose, onSaved }: Props) {
         onChange={(event) => setName(event.target.value)} placeholder="例如：小鹿" onKeyDown={(event) => { if (event.key === "Enter") void save(); }} />
       <span className="field-label color-label">选一个代表你的颜色</span>
       <div className="color-grid" role="group" aria-label="选择颜色">
-        {colors.map((option) => <button key={option} type="button" className={`color-option ${color === option ? "active" : ""}`}
-          style={{ background: option }} onClick={() => setColor(option)} aria-label={`颜色 ${option}`} aria-pressed={color === option}>
+        {MEMBER_COLORS.map((option) => <button key={option} type="button" className={`color-option ${color === option ? "active" : ""}`}
+          style={{ background: option, color: contrastText(option) }} onClick={() => setColor(option)} aria-label={`颜色 ${option}`} aria-pressed={color === option}>
           {color === option && <Check size={18} strokeWidth={3} />}
         </button>)}
       </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPinned, Plus, Share2, Star, Users } from "lucide-react";
 import { api } from "../lib/client-api";
+import { memberColorStyle } from "../lib/color";
 import AddPlaceDialog from "./add-place-dialog";
 import MapCanvas from "./shared-map";
 import PlaceDetail from "./place-detail";
@@ -127,7 +128,7 @@ export default function FoodMapApp() {
       <div className="header-actions">
         <button className="header-share" onClick={() => void share()} aria-label="分享群地图"><Share2 size={21} /></button>
         {profileChecked && <button className="profile-trigger" onClick={() => setProfileOpen(true)} aria-label="修改我的昵称和颜色">
-          <span className="member-avatar" style={{ background: member?.color || "#E75B35" }}>{member?.name.slice(0, 1) || "你"}</span>
+          <span className="member-avatar" style={memberColorStyle(member?.color)}>{member?.name.slice(0, 1) || "你"}</span>
         </button>}
       </div>
     </header>
@@ -155,7 +156,7 @@ export default function FoodMapApp() {
               : <span className="compact-place-cover compact-place-placeholder"><MapPinned size={23} /></span>}
             <span className="compact-place-content"><strong>{place.name}</strong><span className="compact-place-address">{place.cuisine ? `${place.cuisine} · ` : ""}{place.address || "查看地图位置"}</span>
               <span className="compact-place-meta"><Star size={14} fill="currentColor" />{place.averageRating ? Number(place.averageRating).toFixed(1) : "待评分"}<span className="meta-divider" /><Users size={14} />{place.visitsCount} 人去过{place.avgPrice != null && <><span className="meta-divider" />人均 ¥{place.avgPrice}</>}{place.platformRating != null && <><span className="meta-divider" />平台 {Number(place.platformRating).toFixed(1)}</>}</span>
-              <span className="compact-place-creator"><span className="member-avatar" style={{ background: place.creatorColor }}>{place.creatorName.slice(0, 1) || "?"}</span>{place.creatorName} 添加</span></span>
+              <span className="compact-place-creator"><span className="member-avatar" style={memberColorStyle(place.creatorColor)}>{place.creatorName.slice(0, 1) || "?"}</span>{place.creatorName} 添加</span></span>
           </button>)}</div>
       </section> : <section className="collection-map" aria-label="群友收藏地图">
         <MapCanvas places={shownPlaces.map((place) => ({ id: place.id, name: place.name, lat: place.lat, lng: place.lng, color: place.creatorColor }))} selectedId={selectedId} onSelect={openDetail} />

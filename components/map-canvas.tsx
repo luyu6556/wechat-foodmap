@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
+import { normalizeColor } from "../lib/color";
 
 export type MapPlace = { id: string; name: string; lat: number; lng: number; color?: string };
 
@@ -73,7 +74,7 @@ export default function MapCanvas({ places = [], selectedId, picked, pickMode, o
     markersRef.current.clearLayers();
     places.forEach((place) => {
       const selected = place.id === selectedId;
-      const color = /^#[0-9a-fA-F]{6}$/.test(place.color || "") ? place.color : "#e75b35";
+      const color = normalizeColor(place.color);
       const icon = L.divIcon({
         className: "food-map-marker-wrap",
         html: `<span class="food-map-marker${selected ? " is-selected" : ""}" style="--pin-color:${color}"><span></span></span>`,

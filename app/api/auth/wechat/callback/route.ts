@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { db, hashToken } from "../../../../../lib/server";
+import { DEFAULT_MEMBER_COLOR } from "../../../../../lib/color";
 
 function redirect(error = false, session?: string) {
   const url = new URL(env.PUBLIC_SITE_URL || "https://example.invalid");
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
     if (!member) {
       const id = crypto.randomUUID();
       await database.prepare(`INSERT INTO members (id, token_hash, name, color, wechat_openid, created_at)
-        VALUES (?, ?, '', '#E75B35', ?, ?)`).bind(id, await hashToken(crypto.randomUUID()), result.openid, Date.now()).run();
+        VALUES (?, ?, '', ?, ?, ?)`).bind(id, await hashToken(crypto.randomUUID()), DEFAULT_MEMBER_COLOR, result.openid, Date.now()).run();
       member = { id };
     }
     const session = `${crypto.randomUUID()}${crypto.randomUUID()}`;

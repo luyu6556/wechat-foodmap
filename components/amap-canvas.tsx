@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gcjToWgs, wgsToGcj } from "../lib/resolve";
+import { normalizeColor } from "../lib/color";
 import type { MapPlace } from "./map-canvas";
 
 type Coord = [number, number]; // lng, lat in GCJ-02
@@ -89,7 +90,7 @@ export default function AmapCanvas({ apiKey, places = [], selectedId, picked, pi
       const [lat, lng] = wgsToGcj(place.lat, place.lng);
       const pin = document.createElement("span");
       pin.className = `amap-food-pin${place.id === selectedId ? " selected" : ""}`;
-      pin.style.setProperty("--pin-color", /^#[0-9a-fA-F]{6}$/.test(place.color || "") ? place.color! : "#e75b35");
+      pin.style.setProperty("--pin-color", normalizeColor(place.color));
       pin.title = place.name;
       const marker = new AMap.Marker({ position: [lng, lat], content: pin, anchor: "bottom-center" });
       marker.on("click", () => selectRef.current?.(place.id));

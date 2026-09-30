@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Camera, Check, Heart, MapPin, MoreHorizontal, Navigation, Star, Trash2, Users, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
+import { memberColorStyle } from "../lib/color";
 import { preparePhoto } from "../lib/image-compress";
 import AddPlaceDialog from "./add-place-dialog";
 import type { PlaceDetailData } from "./types";
@@ -16,7 +17,7 @@ type Props = {
 };
 
 function avatar(name: string, color: string, key?: string) {
-  return <span key={key} className="member-avatar" style={{ background: color }} title={name}>{name.slice(0, 1) || "?"}</span>;
+  return <span key={key} className="member-avatar" style={memberColorStyle(color)} title={name}>{name.slice(0, 1) || "?"}</span>;
 }
 
 export default function PlaceDetail({ data, loading, onClose, onRefresh, onDeleted }: Props) {
