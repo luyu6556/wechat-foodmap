@@ -26,7 +26,13 @@ export async function memberFromRequest(request: Request): Promise<Member | null
       .bind(await hashToken(cookieToken), Date.now() - 90 * 24 * 60 * 60_000).first<Member>();
     if (fromSession) return fromSession;
   }
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  // The hosting platform's reverse proxy replaces the incoming `Authorization`
+  // header with its own bearer token, so a member token sent there never arrives.
+  // Carry it in `X-Food-Map-Token` instead; `Authorization` stays supported for
+  // local runs and other hosts where nothing rewrites it.
+  const token = (request.headers.get("x-food-map-token") || "").trim()
+    || request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim()
+    || "";
   if (!token || token.length > 200) return null;
   return await db().prepare(`SELECT id, name, color, is_owner AS isOwner,
     (wechat_openid IS NOT NULL) AS wechatLinked FROM members WHERE token_hash = ?`)

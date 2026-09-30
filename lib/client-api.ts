@@ -9,7 +9,13 @@ export class ApiError extends Error {
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window === "undefined" ? "" : localStorage.getItem("food-map-token") || "";
   const headers = new Headers(options.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token) {
+    // The hosting platform's reverse proxy overwrites `Authorization` with its own
+    // bearer token, so the member token rides in a header the proxy leaves alone.
+    // `Authorization` is kept for local runs and hosts that do not rewrite it.
+    headers.set("X-Food-Map-Token", token);
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
   const response = await fetch(path, { ...options, headers, cache: "no-store" });
   const data = await response.json().catch(() => ({})) as { error?: string; existingId?: string };
