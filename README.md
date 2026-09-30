@@ -1,6 +1,6 @@
 # 群聊美食地图
 
-面向一个微信群的手机端共享地图。成员打开链接后设置昵称和颜色，可以收集地点、上传照片、评论、点赞、打分和标记去过。V1.1 已发布到原公开网址，但 2026-09-30 手机微信及系统浏览器被 Cloudflare 拦截，暂不能作为可用的群分享地址；微信与高德配置、真机验收仍待完成。
+面向一个微信群的手机端共享地图。成员打开链接后设置昵称和颜色，可以收集地点、上传照片、评论、点赞、打分和标记去过。V1.1 已发布到 WorkBuddy 站点托管：`https://qunliao-food-map.app.workbuddy.host/`（2026-09-30）。原 ChatGPT Sites 域名被 Cloudflare 边缘拦截，`workers.dev` 在国内被 DNS 污染，两条旧路径均已作废。手机真机验收、微信与高德配置仍待完成。
 
 ## 文档
 
@@ -17,8 +17,12 @@
 
 ## 上线配置
 
-- `OWNER_CLAIM_CODE_HASH`：一次性群主口令的 SHA-256 哈希。明文仅交给群主，不能写入仓库。
+发布到 WorkBuddy 站点托管时，启动命令为 `node scripts/sandbox-serve.mjs`，安装命令为 `npm ci && npm run build`。该脚本负责：状态目录（默认 `$HOME/.qunliao-food-map/state`，**必须在项目目录之外**，否则每次重新部署都会覆盖群数据）、首次启动自动应用 `drizzle/` 迁移、绑定 `0.0.0.0:$PORT`、加载 `.dev.vars`。
+
+- `OWNER_CLAIM_CODE_HASH`：一次性群主口令的 SHA-256 哈希，写在本地 `.dev.vars`（已被 Git 忽略）。明文仅交给群主，不能写入仓库或部署命令。
 - `AMAP_WEB_KEY` 与 `AMAP_SECURITY_JS_CODE`：高德 Web JS API Key 和安全码；两项都配置后启用高德地图。
 - `WECHAT_APP_ID`、`WECHAT_APP_SECRET`、`PUBLIC_SITE_URL`：已认证服务号的网页授权配置及站点 HTTPS 根网址；确认授权域名可用后再启用。
+
+成员令牌通过 `X-Food-Map-Token` 请求头发送（客户端 `lib/client-api.ts` 发送，服务端 `lib/server.ts` 读取）。**不要改回 `Authorization`**：WorkBuddy 站点的反向代理会用自带 bearer 覆盖该头，应用将永远收不到身份。`Authorization` 仅作为本机与其它托管的兼容路径保留。
 
 生产环境变量由 Sites 保存，密钥应标记为 secret。新增的 `drizzle/0001_narrow_justin_hammer.sql` 已在正式 D1 生效。微信和高德配置未提供时，站点仍使用浏览器本地身份与原有底图。

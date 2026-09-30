@@ -2,8 +2,11 @@ import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
-import { sites } from "./build/sites-vite-plugin";
-import { connectorPreview } from "./build/connector-preview-plugin.mjs";
+// This directory is named `platform/`, not `build/`: the publishing pipeline
+// uploads the project while stripping directories it reads as build output, and a
+// top-level `build/` was silently dropped, breaking the config load.
+import { sites } from "./platform/sites-vite-plugin";
+import { connectorPreview } from "./platform/connector-preview-plugin.mjs";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
@@ -15,7 +18,7 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
 const localBindingConfig = {
-  main: "./build/sites-worker.ts",
+  main: "./platform/sites-worker.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
@@ -87,7 +90,7 @@ export default defineConfig(async ({ command }) => {
                 {
                   config: {
                     name: "sites-connector-preview",
-                    main: "./build/connector-preview-worker.mjs",
+                    main: "./platform/connector-preview-worker.mjs",
                     compatibility_date: "2026-05-15",
                   },
                 },
