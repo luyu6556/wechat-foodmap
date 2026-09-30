@@ -3,6 +3,9 @@
 // 且每一色在白字/墨字里至少有一侧达到 WCAG AA 的 4.5:1。
 export const MEMBER_COLORS = ["#BE5437", "#39C6B7", "#3970C6", "#A139C6", "#C68A39", "#C63960", "#39C670", "#319CDD"];
 
+// 与上面一一对应的中文色名，供无障碍标签使用（读屏念十六进制没有意义）。
+export const MEMBER_COLOR_NAMES = ["砖红", "青碧", "靛蓝", "紫罗兰", "琥珀", "玫红", "草绿", "天蓝"];
+
 export const DEFAULT_MEMBER_COLOR = MEMBER_COLORS[0];
 
 // 旧色板 → 新色板，同色相一一对应。

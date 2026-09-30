@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
-import { MEMBER_COLORS, contrastText, memberColorStyle, normalizeColor } from "../lib/color";
+import { MEMBER_COLORS, MEMBER_COLOR_NAMES, contrastText, memberColorStyle, normalizeColor } from "../lib/color";
 import type { Member } from "./types";
 
 type Props = {
@@ -64,8 +64,8 @@ export default function ProfileDialog({ current, onClose, onSaved }: Props) {
         onChange={(event) => setName(event.target.value)} placeholder="例如：小鹿" onKeyDown={(event) => { if (event.key === "Enter") void save(); }} />
       <span className="field-label color-label">选一个代表你的颜色</span>
       <div className="color-grid" role="group" aria-label="选择颜色">
-        {MEMBER_COLORS.map((option) => <button key={option} type="button" className={`color-option ${color === option ? "active" : ""}`}
-          style={{ background: option, color: contrastText(option) }} onClick={() => setColor(option)} aria-label={`颜色 ${option}`} aria-pressed={color === option}>
+        {MEMBER_COLORS.map((option, index) => <button key={option} type="button" className={`color-option ${color === option ? "active" : ""}`}
+          style={{ background: option, color: contrastText(option) }} onClick={() => setColor(option)} aria-label={`颜色 ${MEMBER_COLOR_NAMES[index] || option}`} aria-pressed={color === option}>
           {color === option && <Check size={18} strokeWidth={3} />}
         </button>)}
       </div>
