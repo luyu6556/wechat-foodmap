@@ -25,10 +25,12 @@ declare global {
 }
 
 let loader: Promise<AMapGlobal> | null = null;
-function loadAmap(key: string) {
+function loadAmap(key: string, useProxy: boolean) {
   if (window.AMap) return Promise.resolve(window.AMap);
   if (!loader) loader = new Promise<AMapGlobal>((resolve, reject) => {
-    window._AMapSecurityConfig = { serviceHost: `${window.location.origin}/api/map/_AMapService` };
+    // 仅在配置了安全密钥时才指向同源代理。没有安全密钥时代理会返回 503，
+    // 反而把地图自身的服务请求打断，所以这种情况必须直连高德。
+    if (useProxy) window._AMapSecurityConfig = { serviceHost: `${window.location.origin}/api/map/_AMapService` };
     const script = document.createElement("script");
     script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`;
     script.async = true;
@@ -41,6 +43,7 @@ function loadAmap(key: string) {
 
 type Props = {
   apiKey: string;
+  useProxy?: boolean;
   places?: MapPlace[];
   selectedId?: string | null;
   picked?: { lat: number; lng: number } | null;
@@ -51,7 +54,7 @@ type Props = {
   className?: string;
 };
 
-export default function AmapCanvas({ apiKey, places = [], selectedId, picked, pickMode, onSelect, onPick, onError, className = "" }: Props) {
+export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, picked, pickMode, onSelect, onPick, onError, className = "" }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<AMapMap | null>(null);
   const amapRef = useRef<AMapGlobal | null>(null);
@@ -66,7 +69,7 @@ export default function AmapCanvas({ apiKey, places = [], selectedId, picked, pi
   useEffect(() => {
     let cancelled = false;
     let current: AMapMap | null = null;
-    void loadAmap(apiKey).then((AMap) => {
+    void loadAmap(apiKey, Boolean(useProxy)).then((AMap) => {
       if (cancelled || !elementRef.current) return;
       amapRef.current = AMap;
       current = new AMap.Map(elementRef.current, { center: [114.06, 22.55], zoom: 11, resizeEnable: true });
@@ -79,7 +82,7 @@ export default function AmapCanvas({ apiKey, places = [], selectedId, picked, pi
       setReady(true);
     }).catch(() => { if (!cancelled) onError?.(); });
     return () => { cancelled = true; current?.destroy(); mapRef.current = null; amapRef.current = null; setReady(false); };
-  }, [apiKey, onError]);
+  }, [apiKey, useProxy, onError]);
 
   useEffect(() => {
     const map = mapRef.current;
