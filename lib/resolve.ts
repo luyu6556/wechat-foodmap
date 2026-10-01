@@ -15,9 +15,31 @@ function isHost(host: string, domain: string) {
 }
 
 function sharedName(value: string) {
-  const lines = value.split(/\n/).map((line) => line.trim().replace(/^[【\[]|[】\]]$/g, ""))
+  const lines = value.split(/\n/).map((line) => line.trim())
+    // 文案常见「【店名】宣传语 【地址：…】」，优先取开头成对的括号段，避免把宣传语和地址一起当成店名。
+    .map((line) => {
+      const wrapped = line.match(/^[【\[]([^】\]]+)[】\]]/);
+      return wrapped ? wrapped[1].trim() : line.replace(/^[【\[]|[】\]]$/g, "");
+    })
     .filter((line) => line && !/^(分享|链接|点击|复制|打开微信|美团|大众点评)$/.test(line));
   return (lines.at(-1) || "").slice(0, 80);
+}
+
+// 点评／美团的分享文案把店名、地址、电话各放在一个【】分段里。
+// 这些字段只存在于文案中，短链（如 dpurl.cn）的 URL 参数里没有，必须从文字里取。
+function bracketFields(text: string) {
+  const segments = [...text.matchAll(/【([^】]*)】/g)]
+    .map((match) => match[1].trim()).filter(Boolean);
+  let address = "";
+  const names: string[] = [];
+  for (const segment of segments) {
+    const labelled = segment.match(/^(?:地址|位置|地点)\s*[:：]\s*(.+)$/);
+    if (labelled) { if (!address) address = labelled[1].trim(); continue; }
+    if (/^(?:电话|手机|联系方式|营业时间|人均|评分|评分人数)\s*[:：]/.test(segment)) continue;
+    if (/^(?:分享|链接|点击|复制|打开微信|美团|大众点评)$/.test(segment)) continue;
+    names.push(segment);
+  }
+  return { address, names };
 }
 
 function validPair(lat: number, lng: number) {
@@ -101,11 +123,12 @@ function sourceName(host: string) {
 
 export function resolveSharedText(input: string): ResolvedPlace {
   const raw = input.trim().slice(0, 3000);
+  const fields = bracketFields(raw);
   const mini = raw.match(/#小程序:\/\/([^\s\n]+)/);
   if (mini) {
-    const name = sharedName(raw.slice(0, mini.index));
+    const name = fields.names[0] || sharedName(raw.slice(0, mini.index));
     return {
-      name, address: "", lat: null, lng: null, sourceUrl: null,
+      name, address: fields.address, lat: null, lng: null, sourceUrl: null,
       sourcePlatform: "微信小程序",
       message: name ? "已从分享文案提取名称。小程序口令不含公开坐标，请核对并在地图上选点。" : "已识别微信小程序口令。口令本身不包含店名和位置，请补填后在地图上选点。",
     };
@@ -113,7 +136,8 @@ export function resolveSharedText(input: string): ResolvedPlace {
 
   const match = raw.match(URL_RE);
   if (!match) {
-    return { name: raw.split(/[\n，,]/)[0]?.slice(0, 80) ?? "", address: "", lat: null, lng: null, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称，并在地图上选择位置。" };
+    const name = fields.names[0] || raw.split(/[\n，,]/)[0]?.slice(0, 80) || "";
+    return { name, address: fields.address, lat: null, lng: null, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称，并在地图上选择位置。" };
   }
 
   let url: URL;
@@ -124,7 +148,8 @@ export function resolveSharedText(input: string): ResolvedPlace {
   const platform = sourceName(host);
   const params = url.searchParams;
   let name = params.get("name") || params.get("title") || params.get("q") || "";
-  const address = params.get("address") || "";
+  // 地址优先用链接参数；短链没有参数时回退到文案里的【地址：…】分段。
+  const address = params.get("address") || fields.address;
   let point: [number, number] | null = null;
 
   if (host === "maps.apple.com") {
@@ -146,6 +171,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
     name = marker.match(/title:([^;]+)/)?.[1] || name;
   }
 
+  if (!name) name = fields.names[0] || "";
   if (!name) {
     name = sharedName(raw.slice(0, match.index).replace(/[:：]+$/g, ""));
   }
