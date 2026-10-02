@@ -3,12 +3,28 @@
 
 :root {
   --ink: #18302d;
-  --muted: #64736e;
+  --muted: #596963;
   --line: #e6eae7;
   --soft: #f6f8f5;
   --accent: #df5838;
   --accent-dark: #c8492d;
   --accent-soft: #fff0e9;
+  /* Radix Iris tokens for poll data and secondary navigation. */
+  --iris-2: #f8f8ff;
+  --iris-3: #f0f0ff;
+  --iris-9: #5b5bd6;
+  --iris-10: #5151cd;
+  --iris-11: #5753c6;
+  --iris-12: #272962;
+  --red-2: #fff0f1;
+  --red-11: #cd2b31;
+  /* 投票页要「白卡浮在浅底上」，所以需要一档比 --soft 更实的页面底色，
+     以及一档比 --line 更实的分割/描边色（--line 用在白底列表上够，铺在浅底上会糊掉）。 */
+  --canvas: #f4f6f3;
+  --line-strong: #cfd8d3;
+  /* --accent 在白底上对比度不足，不用于文字或白字按钮；白字实心按钮用 --accent-dark，
+     橙色文字用更深的 --accent-press。原品牌色留给地图标记、选中描边和浅色点缀。 */
+  --accent-press: #b03f24;
 }
 
 * { box-sizing: border-box; }
@@ -29,7 +45,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .member-avatar { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; font-weight: 750; }
 .map-canvas { height: 100%; width: 100%; z-index: 0; background: #e7eee8; }
 .map-canvas-pick { cursor: crosshair; }
-.primary-button:hover { background: var(--accent-dark); }
+.primary-button:hover { background: var(--accent-press); }
 .food-map-marker-wrap { background: transparent; border: 0; }
 .food-map-marker { display: grid; place-items: center; width: 36px; height: 36px; background: var(--pin-color, var(--accent)); border: 3px solid #fff; border-radius: 50% 50% 50% 7px; transform: rotate(-45deg); box-shadow: 0 3px 9px #172c2966; }
 .food-map-marker > span { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
@@ -38,24 +54,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .leaflet-container { font-family: inherit; }
 .leaflet-control-attribution { font-size: 10px !important; }
 
-.eyebrow { margin: 0 0 6px; color: var(--accent); font-weight: 800; font-size: 12px; letter-spacing: .09em; }
+.eyebrow { margin: 0 0 6px; color: var(--accent-press); font-weight: 800; font-size: 12px; letter-spacing: .09em; }
 .place-row { display: flex; width: 100%; gap: 13px; align-items: flex-start; padding: 17px 24px; text-align: left; color: var(--ink); background: #fff; border: 0; border-bottom: 1px solid var(--line); }
 .place-row:hover, .place-row.selected { background: #f9faf7; }
-.place-cover { width: 82px; height: 82px; object-fit: cover; border-radius: 13px; flex: none; }
 .list-message, .list-error { margin: 25px; color: var(--muted); font-size: 14px; }
-.list-error button { border: 0; background: transparent; color: var(--accent); font-weight: 700; margin-left: 10px; }
+.list-error button { border: 0; background: transparent; color: var(--accent-press); font-weight: 700; margin-left: 10px; }
 .empty-state { text-align: center; padding: 48px 25px; }
 .empty-state img { display: block; width: 134px; height: 134px; object-fit: cover; margin: 0 auto 21px; border-radius: 50%; box-shadow: 0 10px 35px #4635231c; }
 .empty-state h2 { font-size: 21px; margin: 0 0 8px; }
 .empty-state p { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 0 0 22px; }
 
 .primary-button, .secondary-button, .text-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 11px; font-size: 15px; font-weight: 750; }
-.primary-button { min-height: 46px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; }
+.primary-button { min-height: 46px; padding: 0 18px; background: var(--accent-dark); color: #fff; border: 0; }
 .primary-button.full { width: 100%; }
-.secondary-button { min-height: 42px; padding: 0 14px; color: var(--accent-dark); background: #fff; border: 1px solid #edb4a4; }
+.secondary-button { min-height: 44px; padding: 0 14px; color: var(--accent-dark); background: #fff; border: 1px solid #edb4a4; }
 .secondary-button:hover { background: var(--accent-soft); }
-.text-button { min-height: 38px; padding: 0 4px; border: 0; background: transparent; color: var(--accent-dark); font-size: 14px; }
-.icon-button { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 10px; background: transparent; color: var(--ink); }
+.text-button { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--accent-dark); font-size: 14px; }
+.icon-button { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border: 0; border-radius: 10px; background: transparent; color: var(--ink); }
 .icon-button:hover { background: var(--soft); }
 
 .dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0e231e8f; padding: 20px; }
@@ -66,7 +81,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .profile-dialog h2, .add-dialog h2 { font-size: 25px; line-height: 1.3; letter-spacing: -.035em; margin: 0; }
 .dialog-intro { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 9px 0 25px; }
 .field-label { display: block; font-size: 14px; font-weight: 750; margin-bottom: 8px; }
-.field-label span { color: var(--accent); }
+.field-label span { color: var(--accent-press); }
 .text-field { width: 100%; min-height: 46px; border: 1px solid #d8dfdb; border-radius: 10px; background: #fff; color: var(--ink); padding: 10px 13px; font-size: 16px; line-height: 1.4; outline: 0; }
 .text-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #f9d9cd; }
 .text-field::placeholder { color: #9ba9a1; }
@@ -83,7 +98,7 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .add-scroll { padding: 21px 24px 25px; overflow-y: auto; min-height: 0; }
 .import-panel { background: #fbf7f3; border: 1px solid #f0e7df; border-radius: 15px; padding: 17px; margin-bottom: 24px; }
 .section-heading { display: flex; align-items: center; gap: 9px; color: var(--ink); font-size: 16px; }
-.section-heading svg { color: var(--accent); }
+.section-heading svg { color: var(--accent-press); }
 .import-panel p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 7px 0 13px; }
 .import-panel .share-field { background: #fff; }
 .import-panel .secondary-button { margin-top: 11px; }
@@ -95,7 +110,7 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .location-heading p { color: var(--muted); font-size: 13px; margin: 0 0 11px; }
 .picker-map { height: 270px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
 .coordinate-row { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin: 10px 0 0; }
-.coordinate-row svg { color: var(--accent); }
+.coordinate-row svg { color: var(--accent-press); }
 .coordinate-manual { color: var(--muted); font-size: 13px; margin: 10px 0; }
 .coordinate-manual summary { cursor: pointer; }
 .coordinate-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 9px; }
@@ -191,7 +206,6 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 }
 
 @media (max-width: 360px) {
-  .place-cover { width: 70px; height: 70px; }
   .field-grid { grid-template-columns: minmax(0, 1fr) 105px; }
 }
 
@@ -202,16 +216,20 @@ body { background: #f4f5f3; }
 .new-app-shell { display: flex; flex-direction: column; max-width: 760px; min-height: 100dvh; margin: 0 auto; background: #fff; box-shadow: 0 0 45px #172c2912; }
 .compact-header { height: 56px; padding: 0 20px; flex: none; border-bottom: 0; }
 .compact-header h1 { margin: 0; font-size: 21px; letter-spacing: -.04em; line-height: 1.2; font-weight: 800; }
-.compact-header .header-share { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border-radius: 10px; }
-.compact-header .profile-trigger { padding: 3px; border: 0; }
+.compact-header .header-share { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 10px; }
+.compact-header .profile-trigger { min-width: 44px; min-height: 44px; padding: 3px; border: 0; justify-content: center; }
 .compact-header .member-avatar { width: 34px; height: 34px; }
 .collection-layout { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.view-switch { display: grid; grid-template-columns: 1fr 1fr; margin: 0 18px; padding: 2px; gap: 4px; background: #f2f3f4; border-radius: 12px; }
-.view-switch button { height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font-size: 15px; font-weight: 700; }
-.view-switch button.active { background: var(--accent); color: #fff; box-shadow: 0 2px 6px #dc6a462b; }
+/* 投票页整片铺浅色底，白卡片才浮得起来（列表页是分隔线列表、地图页要无缝，都不铺）。 */
+.collection-layout.is-poll { background: var(--canvas); }
+/* 分段控件自带的轨道色 #f2f3f4 与 --canvas 几乎同色，铺上去会看不出「这是个控件」，改成白轨。 */
+.collection-layout.is-poll .view-switch { background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+.view-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 18px; padding: 2px; gap: 4px; background: #f2f3f4; border-radius: 12px; }
+.view-switch button { min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font-size: 15px; font-weight: 700; }
+.view-switch button.active { background: var(--accent-dark); color: #fff; box-shadow: 0 2px 6px #dc6a462b; }
 .collection-filters { display: flex; flex: none; gap: 25px; margin: 0 18px; border-bottom: 1px solid var(--line); }
 .collection-filters button { height: 44px; min-width: 45px; padding: 0 3px; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; font-size: 15px; font-weight: 650; }
-.collection-filters button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 800; }
+.collection-filters button.active { color: var(--accent-press); border-bottom-color: var(--accent); font-weight: 800; }
 .collection-list { flex: 1; min-height: 0; padding: 0 18px; }
 .collection-heading { display: flex; align-items: center; height: 46px; }
 .collection-heading h2 { margin: 0; font-size: 19px; letter-spacing: -.03em; }
@@ -220,22 +238,37 @@ body { background: #f4f5f3; }
 .compact-place-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 111px; padding: 11px 0; border: 0; border-bottom: 1px solid var(--line); background: #fff; color: var(--ink); text-align: left; }
 .compact-place-row:hover, .compact-place-row:focus-visible { background: #fafaf9; }
 .compact-place-cover { display: block; width: 85px; height: 85px; flex: none; object-fit: cover; border-radius: 9px; }
-.compact-place-placeholder { display: grid; place-items: center; color: var(--accent); background: #fbede6; }
 .compact-place-content { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
 .compact-place-content strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 16px; line-height: 1.25; font-weight: 780; }
 .compact-place-address { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; line-height: 1.3; }
 .compact-place-meta { display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 12px; white-space: nowrap; }
-.compact-place-meta svg:first-child { color: var(--accent); }
+.compact-place-meta svg:first-child { color: var(--accent-press); }
 .compact-place-meta svg:not(:first-child) { margin-left: 2px; }
 .meta-divider { display: inline-block; width: 1px; height: 12px; margin: 0 5px; background: var(--line); }
 .compact-place-creator { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; line-height: 1.2; }
 .compact-place-creator .member-avatar { width: 18px; height: 18px; font-size: 10px; font-weight: 700; }
 .collection-map { position: relative; flex: 1; min-height: 430px; overflow: hidden; }
-.collection-map .map-canvas { height: 100%; min-height: 430px; }
+/* 地图铺满整个地图区：父链高度来自 flex、不是「确定高度」，子元素的 height:100%
+   会解析成 auto 而被 min-height 托住，底部留白（实测 section 630 / 地图只有 430）。
+   容器本来就是 position:relative，用绝对定位绕开百分比高度。 */
+.collection-map .map-canvas { position: absolute; inset: 0; min-height: 0; }
 .map-error { position: absolute; z-index: 500; top: 12px; left: 12px; right: 12px; padding: 10px 12px; border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 4px 16px #172c2926; font-size: 13px; }
-.map-error button { border: 0; color: var(--accent); background: none; font-weight: 700; margin-left: 8px; }
+.map-error button { border: 0; color: var(--accent-press); background: none; font-weight: 700; margin-left: 8px; }
+/* 点地图标记后浮在地图底部的小卡片（浮在「添加地点」按钮之上，不遮住整张图）。
+   右侧 44px 的关闭键既是触控目标，也顺手给正文让出右边距。 */
+.map-peek { position: absolute; z-index: 550; left: 12px; right: 12px; bottom: 12px; display: flex; align-items: stretch; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 24px #172c2926; overflow: hidden; }
+.map-peek-main { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; padding: 12px 4px 12px 14px; border: 0; background: #fff; color: var(--ink); text-align: left; }
+.map-peek-main strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 16px; line-height: 1.25; font-weight: 780; }
+.map-peek-address { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.map-peek-footer { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.map-peek-footer .compact-place-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.map-peek-footer .compact-place-creator { flex: none; }
+.map-peek-close { display: grid; flex: none; place-items: center; width: 44px; border: 0; background: #fff; color: var(--muted); }
+.map-peek-close:hover, .map-peek-close:focus-visible { background: var(--soft); color: var(--ink); }
 .sticky-add { position: sticky; z-index: 600; bottom: 0; flex: none; padding: 10px 18px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #fff; }
-.sticky-add .primary-button { width: 100%; min-height: 48px; border-radius: 16px; font-size: 16px; }
+/* 圆角取自 iPhone 主屏 Dock 实测：Dock 836.5×209.5px，等效圆角半径 83px → R/H = 0.396；
+   按钮高 48px，按同一比例 = 19px（CSS 上限为高度一半 24px，超过即变胶囊）。 */
+.sticky-add .primary-button { width: 100%; min-height: 48px; border-radius: 19px; font-size: 16px; }
 @media (min-width: 761px) { .new-app-shell { min-height: 100dvh; } }
 @media (max-width: 360px) { .compact-header h1 { font-size: 19px; } .compact-place-cover { width: 76px; height: 76px; } .compact-place-meta { font-size: 11px; } }
 @media (max-width: 780px) {
@@ -251,6 +284,103 @@ body { background: #f4f5f3; }
 .owner-claim summary { cursor: pointer; }
 .owner-claim-form { display: flex; gap: 8px; margin-top: 10px; }
 .owner-claim-form .text-field { min-width: 0; }
+
+/* Group poll */
+.poll-panel { flex: 1; min-height: 0; padding: 0 18px 32px; }
+.poll-panel-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 54px; border-bottom: 1px solid var(--line-strong); }
+.poll-panel-nav h2 { margin: 0; font-size: 18px; }
+.poll-nav-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 7px; border: 0; background: transparent; color: var(--iris-11); font-size: 14px; font-weight: 700; }
+.poll-panel-error { margin: 14px 0; padding: 12px; border-radius: 10px; background: #fff0e9; color: var(--accent-press); font-size: 14px; }
+.poll-panel-error button { min-height: 44px; margin-left: 8px; border: 0; background: transparent; color: inherit; font-weight: 800; }
+.poll-empty-message { margin: 18px 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.poll-empty-state { padding: 44px 16px; text-align: center; }
+.poll-empty-state > span { display: block; margin-bottom: 10px; font-size: 40px; }
+.poll-empty-state h2 { margin: 0 0 9px; font-size: 22px; }
+.poll-empty-state p { max-width: 390px; margin: 0 auto 20px; color: var(--muted); line-height: 1.6; font-size: 14px; }
+.poll-current-link { margin: 18px 0; }
+.poll-current-link button { min-height: 44px; padding: 0 12px; border: 0; background: var(--iris-2); color: var(--iris-12); border-radius: 10px; font-weight: 750; }
+.poll-create-blocked { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0 0; color: var(--muted); font-size: 12px; }
+.poll-create-blocked button { min-height: 44px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 9px; background: #fff; color: var(--muted); font-size: 13px; }
+.poll-heading { padding: 22px 0 14px; }
+.poll-heading h2 { margin: 9px 0 7px; font-size: 23px; line-height: 1.3; overflow-wrap: anywhere; }
+.poll-heading p { margin: 4px 0; color: var(--muted); font-size: 13px; }
+.poll-status { display: inline-block; padding: 5px 9px; background: #eef1ee; border-radius: 7px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.poll-status.is-open { background: #e6f3e9; color: #226c3c; }
+.poll-progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 13px 15px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; }
+.poll-progress strong { font-size: 18px; }
+.poll-progress span { color: var(--muted); font-size: 12px; }
+.poll-outcome { margin: 12px 0 0; padding: 11px 14px; border-radius: 10px; background: #fff0e9; color: var(--accent-press); font-weight: 800; }
+.poll-options { display: grid; gap: 13px; margin-top: 17px; }
+.poll-option { min-width: 0; padding: 16px; border: 1px solid var(--line-strong); border-radius: 15px; background: #fff; box-shadow: 0 1px 3px #172c290f; }
+.poll-option.is-mine { border-color: var(--accent); box-shadow: 0 0 0 2px #df58381f, 0 1px 3px #172c290f; }
+.poll-option-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.poll-option-title h3 { min-width: 0; margin: 0; font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.poll-option-title strong { flex: none; white-space: nowrap; color: var(--iris-11); font-size: 15px; }
+.poll-deleted { display: inline-block; margin-top: 7px; color: #8f574b; background: #fceee9; padding: 3px 6px; border-radius: 5px; font-size: 12px; }
+.poll-option-address { margin: 8px 0 7px; color: var(--muted); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.poll-option-meta { display: flex; flex-wrap: wrap; gap: 5px 13px; color: var(--ink); font-size: 13px; }
+.poll-option-meta span:first-child { font-weight: 800; }
+.poll-place-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; margin-top: 2px; padding: 0; border: 0; background: transparent; color: var(--iris-11); font-size: 13px; font-weight: 700; }
+.poll-bar { height: 9px; margin-top: 10px; overflow: hidden; border-radius: 9px; background: #edf0ed; }
+.poll-bar span { display: block; height: 100%; border-radius: inherit; background: var(--iris-9); transition: width .2s ease; }
+.poll-voters { display: grid; gap: 8px; margin: 13px 0 0; }
+.poll-voter { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.poll-voter .member-avatar { width: 28px; height: 28px; font-size: 12px; }
+.poll-voter > span:last-child { display: grid; gap: 2px; min-width: 0; font-size: 13px; }
+.poll-voter small { font-size: 13px; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+.poll-vote-choice { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 46px; margin-top: 12px; padding: 7px 10px; border: 0; border-radius: 11px; background: var(--accent-dark); color: #fff; font-size: 15px; font-weight: 800; }
+.poll-vote-choice:hover { background: var(--accent-press); }
+.poll-vote-choice.is-selected { background: var(--accent-press); box-shadow: inset 0 0 0 2px #ffffff59; }
+.poll-reason { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.poll-reason label { font-size: 13px; font-weight: 750; }
+.poll-reason textarea { min-height: 86px; resize: vertical; }
+.poll-reason > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.poll-not-voted { margin-top: 24px; }
+.poll-not-voted h3 { margin: 0 0 10px; font-size: 16px; }
+.poll-not-voted > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.poll-not-voted p { color: var(--muted); font-size: 13px; }
+.poll-member { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px 5px 5px; border: 1px solid var(--line-strong); border-radius: 30px; background: #fff; font-size: 13px; }
+.poll-member .member-avatar { width: 25px; height: 25px; font-size: 11px; }
+.poll-identity-note { margin: 17px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.poll-actions { display: grid; gap: 9px; margin-top: 17px; }
+.poll-actions > button { min-height: 46px; width: 100%; }
+.poll-close-button { min-height: 44px; border: 0; background: transparent; color: #9b4433; font-weight: 750; }
+.poll-manual-copy { position: fixed; z-index: 1200; inset: auto 12px 12px; max-width: 600px; margin: 0 auto; padding: 15px; border-radius: 14px; background: #fff; box-shadow: 0 10px 50px #142c2770; }
+.poll-manual-copy > button { float: right; }
+.poll-manual-copy p { margin: 5px 0 12px; font-size: 14px; }
+.poll-manual-copy textarea { width: 100%; min-height: 180px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+.poll-history-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 20px 0 10px; }
+.poll-history-head h2 { margin: 0; font-size: 20px; }
+.poll-history-row { display: grid; gap: 5px; width: 100%; min-height: 82px; padding: 13px 2px; border: 0; border-bottom: 1px solid var(--line); background: #fff; text-align: left; }
+.poll-history-row strong { font-size: 16px; }
+.poll-history-row span { color: var(--accent-dark); font-size: 13px; }
+.poll-history-row small { color: var(--muted); font-size: 12px; }
+.poll-load-more { width: 100%; min-height: 44px; margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--iris-11); font-weight: 700; }
+.poll-create-dialog { display: flex; flex-direction: column; width: min(100%, 540px); max-height: min(92dvh, 900px); border-radius: 18px; background: #fff; overflow: hidden; }
+.poll-create-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
+.poll-create-head h2 { margin: 0; font-size: 20px; }
+.poll-create-scroll { min-height: 0; padding: 17px; overflow-y: auto; }
+.poll-presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 22px; }
+.poll-presets button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); color: var(--ink); font-size: 13px; }
+.poll-candidate-head h3 { margin: 0; font-size: 16px; }
+.poll-candidate-head h3 span { color: var(--muted); font-size: 13px; }
+.poll-candidate-head p { margin: 5px 0 12px; color: var(--muted); font-size: 13px; }
+.poll-selected-list { display: grid; gap: 5px; margin: 0 0 13px; padding-left: 24px; }
+.poll-selected-list li { min-height: 44px; padding-left: 3px; line-height: 44px; font-size: 13px; }
+.poll-selected-list li button { float: right; display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--accent-dark); }
+.poll-search { display: flex; align-items: center; gap: 7px; min-height: 46px; padding: 0 12px; border: 1px solid #d8dfdb; border-radius: 10px; color: var(--muted); }
+.poll-search input { width: 100%; min-width: 0; border: 0; outline: 0; font-size: 16px; }
+.poll-candidate-list { margin-top: 8px; }
+.poll-candidate { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 65px; padding: 9px 1px; border: 0; border-bottom: 1px solid var(--line); background: #fff; color: var(--ink); text-align: left; }
+.poll-candidate.is-selected { background: var(--iris-2); }
+.poll-candidate > span:first-child { display: grid; min-width: 0; gap: 3px; }
+.poll-candidate strong { font-size: 14px; overflow-wrap: anywhere; }
+.poll-candidate small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.poll-check { flex: none; color: var(--iris-11); font-size: 13px; font-weight: 800; }
+.poll-add-place-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 11px; padding: 0; border: 0; background: transparent; color: var(--iris-11); font-size: 13px; font-weight: 750; }
+.poll-create-footer { padding: 12px 17px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #fff; }
+.poll-create-footer .primary-button { width: 100%; }
+@media (max-width: 430px) { .poll-create-dialog { max-height: 95dvh; } .poll-panel-nav { gap: 0; } .poll-nav-button { font-size: 13px; } }
 .detail-top-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .manage-menu { position: relative; }
 .manage-menu summary { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; cursor: pointer; list-style: none; }
@@ -281,5 +411,44 @@ body { background: #f4f5f3; }
 .import-panel .shot-row .secondary-button input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .import-panel .shot-row .secondary-button.disabled { opacity: .55; pointer-events: none; }
 .shot-preview { width: 44px; height: 44px; flex: 0 0 auto; object-fit: cover; border: 1px solid #f0e7df; border-radius: 9px; }
+.shot-hint { color: var(--muted); font-size: 13px; }
+/* 待保存列表：批量导入时一条识别结果一行，一眼看清哪条能存、哪条还缺东西。
+   行内不再嵌「状态药丸 + 删除键」并排（那样正文只剩 200px 宽），药丸移到首行右侧、
+   右侧只留一个 44px 的删除键。 */
+.draft-block { margin: 0 0 24px; }
+.draft-block .section-heading { justify-content: flex-start; }
+.draft-count { margin-left: auto; color: var(--muted); font-size: 13px; font-weight: 750; }
+.draft-hint { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 7px 0 11px; }
+.draft-list { display: grid; gap: 9px; }
+.draft-row { display: flex; align-items: center; gap: 8px; padding: 9px 6px 9px 10px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+.draft-row.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px #df58381a; }
+.draft-main { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
+.draft-thumb { display: block; width: 46px; height: 46px; flex: none; object-fit: cover; border-radius: 9px; }
+.draft-thumb-blank { display: grid; place-items: center; color: var(--accent-press); background: #fbede6; }
+.draft-content { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.draft-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.draft-head strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; line-height: 1.3; font-weight: 750; }
+.draft-line { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; line-height: 1.35; }
+.draft-line-bad { color: var(--red-11); white-space: normal; }
+.draft-side { display: flex; flex: none; align-items: center; }
+.draft-badge { flex: none; padding: 3px 8px; border-radius: 30px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.draft-badge.is-muted { background: #eef1ee; color: var(--muted); }
+.draft-badge.is-ok { background: #e6f3e9; color: #226c3c; }
+.draft-badge.is-warn { background: #fdf1e3; color: #8a5a1c; }
+.draft-badge.is-bad { background: var(--red-2); color: var(--red-11); }
+.draft-remove { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border: 0; border-radius: 10px; background: transparent; color: var(--muted); }
+.draft-remove:hover, .draft-remove:focus-visible { background: var(--soft); color: var(--ink); }
+/* 同名门店候选：同名连锁有多家分店时，服务端不替用户挑，列出来让他自己点 ——
+   选错分店的图钉和正确的长得一模一样，只有用户知道去的是哪家。触控目标同样 44px 起步。 */
+.candidate-block { margin: 0 0 16px; }
+.candidate-block .section-heading { justify-content: flex-start; }
+.candidate-block .draft-hint { margin: 7px 0 0; }
+.candidate-list { display: grid; gap: 8px; margin-top: 10px; }
+.candidate-row { display: flex; flex-direction: column; gap: 3px; width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); text-align: left; }
+.candidate-row:hover, .candidate-row:focus-visible { border-color: var(--accent); background: var(--soft); }
+.candidate-name { font-size: 15px; font-weight: 750; line-height: 1.3; }
+.candidate-address { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.secondary-button.full { width: 100%; }
+.footer-hint { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 .platform-strip { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 9px 0 0; color: var(--muted); font-size: 13px; }
 .platform-strip b { color: var(--ink); font-weight: 750; }

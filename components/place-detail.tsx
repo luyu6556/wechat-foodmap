@@ -1,17 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, Check, Heart, MapPin, MoreHorizontal, Navigation, Star, Trash2, Users, X } from "lucide-react";
+import { Camera, Check, Heart, MapPin, MapPinned, MoreHorizontal, Navigation, Star, Trash2, Users, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
 import { memberColorStyle } from "../lib/color";
 import { preparePhoto } from "../lib/image-compress";
+import { detectSourcePlatform } from "../lib/resolve";
 import AddPlaceDialog from "./add-place-dialog";
 import type { PlaceDetailData } from "./types";
+
+type SourceInfo = { sourceUrl: string | null; sourceText: string; sourcePlatform: string };
+
+// 来源标签**现算**，不照抄库里存的 `sourcePlatform`：库里已有的行是旧逻辑写下的
+// （`dpurl.cn` 被一律标成「大众点评」，实测线上「@美团 http://dpurl.cn/…」就是这么错的），
+// 只改导入逻辑救不了老数据。判不出平台时只说「原链接」—— 猜错平台比不说更糟。
+function sourcePlatformOf(place: SourceInfo) {
+  const platform = detectSourcePlatform({
+    url: place.sourceUrl, text: place.sourceText, fallback: place.sourcePlatform,
+  });
+  return !platform || platform === "网页链接" ? "" : platform;
+}
 
 type Props = {
   data: PlaceDetailData | null;
   loading: boolean;
   onClose: () => void;
+  onShowOnMap: () => void;
   onRefresh: () => Promise<void>;
   onDeleted: () => Promise<void>;
 };
@@ -20,7 +34,7 @@ function avatar(name: string, color: string, key?: string) {
   return <span key={key} className="member-avatar" style={memberColorStyle(color)} title={name}>{name.slice(0, 1) || "?"}</span>;
 }
 
-export default function PlaceDetail({ data, loading, onClose, onRefresh, onDeleted }: Props) {
+export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRefresh, onDeleted }: Props) {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -111,6 +125,8 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh, onDelet
   }
 
   const place = data?.place;
+  // 一次算好给下面两处用（避免同一个判断调用三遍）。
+  const sourcePlatform = place ? sourcePlatformOf(place) : "";
   return <>
     <div className="detail-shade" onClick={onClose} />
     <section className="detail-panel" role="dialog" aria-modal="true" aria-label={place?.name || "地点详情"}>
@@ -139,10 +155,11 @@ export default function PlaceDetail({ data, loading, onClose, onRefresh, onDelet
               {place.avgPrice != null && <span>人均 <b>¥{place.avgPrice}</b></span>}
             </div>}
             <div className="detail-links">
-              <a href={`https://uri.amap.com/marker?position=${place.lng},${place.lat}&coordinate=wgs84&name=${encodeURIComponent(place.name)}&src=group-food-map&callnative=0`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />地图查看</a>
-              {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noopener noreferrer">查看{place.sourcePlatform}来源</a>}
+              <button type="button" className="secondary-button" onClick={onShowOnMap}><MapPinned size={17} />在地图中查看</button>
+              <a href={`https://uri.amap.com/marker?position=${place.lng},${place.lat}&coordinate=wgs84&name=${encodeURIComponent(place.name)}&src=group-food-map&callnative=0`} target="_blank" rel="noopener noreferrer"><Navigation size={17} />在高德中打开</a>
+              {place.sourceUrl && <a href={place.sourceUrl} target="_blank" rel="noopener noreferrer">{sourcePlatform ? `查看${sourcePlatform}来源` : "查看原链接"}</a>}
             </div>
-            {!place.sourceUrl && place.sourceText && <details className="source-note"><summary>查看{place.sourcePlatform}分享内容</summary><p>{place.sourceText}</p></details>}
+            {!place.sourceUrl && place.sourceText && <details className="source-note"><summary>{sourcePlatform ? `查看${sourcePlatform}分享内容` : "查看分享内容"}</summary><p>{place.sourceText}</p></details>}
             {place.sourceRaw && <details className="source-note"><summary>查看截图识别到的原文</summary><p>{place.sourceRaw}</p></details>}
 
             <div className="detail-stats">

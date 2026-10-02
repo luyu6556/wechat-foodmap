@@ -14,6 +14,7 @@ type AMapMap = {
   remove: (markers: AMapMarker[]) => void;
   setCenter: (point: Coord) => void;
   setZoom: (zoom: number) => void;
+  getZoom: () => number;
   destroy: () => void;
 };
 type AMapGlobal = {
@@ -46,26 +47,29 @@ type Props = {
   useProxy?: boolean;
   places?: MapPlace[];
   selectedId?: string | null;
+  focusId?: string | null;
   picked?: { lat: number; lng: number } | null;
   pickMode?: boolean;
   onSelect?: (id: string) => void;
   onPick?: (point: { lat: number; lng: number }) => void;
+  onBlankClick?: () => void;
   onError?: () => void;
   className?: string;
 };
 
-export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, picked, pickMode, onSelect, onPick, onError, className = "" }: Props) {
+export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, focusId, picked, pickMode, onSelect, onPick, onBlankClick, onError, className = "" }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<AMapMap | null>(null);
   const amapRef = useRef<AMapGlobal | null>(null);
   const markersRef = useRef<AMapMarker[]>([]);
   const selectRef = useRef(onSelect);
   const pickRef = useRef(onPick);
+  const blankRef = useRef(onBlankClick);
   const pickModeRef = useRef(pickMode);
   const initialFitRef = useRef(false);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => { selectRef.current = onSelect; pickRef.current = onPick; pickModeRef.current = pickMode; }, [onSelect, onPick, pickMode]);
+  useEffect(() => { selectRef.current = onSelect; pickRef.current = onPick; blankRef.current = onBlankClick; pickModeRef.current = pickMode; }, [onSelect, onPick, onBlankClick, pickMode]);
   useEffect(() => {
     let cancelled = false;
     let current: AMapMap | null = null;
@@ -75,7 +79,9 @@ export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, 
       current = new AMap.Map(elementRef.current, { center: [114.06, 22.55], zoom: 11, resizeEnable: true });
       mapRef.current = current;
       current.on("click", (event) => {
-        if (!pickModeRef.current) return;
+        // 选点模式：点在哪儿取哪儿。平时：点地图空白处 = 收起标记卡片。
+        // 高德的标记点击不会冒泡到这里，所以点标记不会顺手把卡片关掉。
+        if (!pickModeRef.current) { blankRef.current?.(); return; }
         const [lat, lng] = gcjToWgs(event.lnglat.getLat(), event.lnglat.getLng());
         pickRef.current?.({ lat, lng });
       });
@@ -106,6 +112,11 @@ export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, 
       markers.push(new AMap.Marker({ position: [lng, lat], content: pin, anchor: "bottom-center" }));
       map.setCenter([lng, lat]);
       map.setZoom(15);
+    } else if (focusId) {
+      // 详情页「在地图中查看」跳过来的定位：居中并放大到该点，
+      // 省掉用户在整张图上自己找它的那一步。
+      const target = places.find((place) => place.id === focusId);
+      if (target) { const [lat, lng] = wgsToGcj(target.lat, target.lng); map.setCenter([lng, lat]); map.setZoom(Math.max(map.getZoom(), 16)); }
     } else if (selectedId) {
       const selected = places.find((place) => place.id === selectedId);
       if (selected) { const [lat, lng] = wgsToGcj(selected.lat, selected.lng); map.setCenter([lng, lat]); }
@@ -119,7 +130,7 @@ export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, 
     }
     map.add(markers);
     markersRef.current = markers;
-  }, [ready, places, selectedId, picked]);
+  }, [ready, places, selectedId, focusId, picked]);
 
   return <div ref={elementRef} className={`map-canvas amap-canvas ${pickMode ? "map-canvas-pick" : ""} ${className}`} aria-label={pickMode ? "点按地图选择地点位置" : "地点地图"} />;
 }

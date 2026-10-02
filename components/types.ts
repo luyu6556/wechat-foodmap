@@ -57,6 +57,14 @@ export type RecognizedPlace = {
   message: string;
 };
 
+export type PlaceCandidate = {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  exactBranch: boolean;
+};
+
 export type LocatedPlace = {
   lat: number | null;
   lng: number | null;
@@ -64,4 +72,75 @@ export type LocatedPlace = {
   confidence: number;
   matchedName: string;
   message: string;
+  // 有歧义时服务端把命中的候选交回来，由用户挑正确的一家；没歧义时是空数组。
+  candidates: PlaceCandidate[];
+};
+
+export type PollMember = { id: string; name: string; color: string };
+export type PollVote = {
+  placeId: string;
+  memberId: string;
+  memberName: string;
+  memberColor: string;
+  note: string;
+  createdAt: number;
+  mine: boolean;
+};
+export type PollOption = {
+  placeId: string;
+  name: string;
+  address: string;
+  cuisine: string;
+  avgPrice: number | null;
+  platformRating: number | null;
+  averageRating: number | null;
+  deleted: boolean;
+  count: number;
+  votes: PollVote[];
+};
+export type PollSummary = {
+  id: string;
+  title: string;
+  status: "open" | "closed";
+  createdAt: number;
+  closedAt: number | null;
+  closedByName: string | null;
+  creatorName: string;
+  creatorColor: string;
+  totalVotes: number;
+  optionCount: number;
+  totalMembers: number;
+  topOptions: { placeId: string; name: string; count: number }[];
+};
+export type PollDetail = {
+  poll: {
+    id: string;
+    title: string;
+    status: "open" | "closed";
+    createdAt: number;
+    createdBy: string;
+    creatorName: string;
+    creatorColor: string;
+    closedAt: number | null;
+    closedBy: string | null;
+    closedByName: string | null;
+  };
+  options: PollOption[];
+  my: { placeId: string; note: string } | null;
+  totalMembers: number;
+  notVoted: PollMember[];
+};
+export type PollList = {
+  open: PollSummary | null;
+  history: PollSummary[];
+  nextCursor: string | null;
+};
+export type PollCandidate = {
+  id: string;
+  name: string;
+  address: string;
+  cuisine: string;
+  avgPrice: number | null;
+  platformRating: number | null;
+  averageRating: number | null;
 };

@@ -1,4 +1,5 @@
-import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const members = sqliteTable("members", {
   id: text("id").primaryKey(),
@@ -80,3 +81,39 @@ export const photos = sqliteTable("photos", {
   mime: text("mime").notNull(),
   createdAt: integer("created_at").notNull(),
 });
+
+export const polls = sqliteTable("polls", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  note: text("note").notNull().default(""),
+  status: text("status").notNull().default("open"),
+  createdBy: text("created_by").notNull().references(() => members.id),
+  createdAt: integer("created_at").notNull(),
+  closedBy: text("closed_by").references(() => members.id),
+  closedAt: integer("closed_at"),
+}, (table) => [
+  // One open poll at a time, including when two members create concurrently.
+  uniqueIndex("polls_single_open").on(table.status).where(sql`${table.status} = 'open'`),
+]);
+
+export const pollOptions = sqliteTable("poll_options", {
+  pollId: text("poll_id").notNull().references(() => polls.id),
+  // Deliberately no FK to places: authors and owners must still be able to delete a place.
+  placeId: text("place_id").notNull(),
+  placeName: text("place_name").notNull().default(""),
+  placeAddress: text("place_address").notNull().default(""),
+  placeCuisine: text("place_cuisine").notNull().default(""),
+  placeAvgPrice: integer("place_avg_price"),
+  placePlatformRating: real("place_platform_rating"),
+  placeAverageRating: real("place_average_rating"),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => [primaryKey({ columns: [table.pollId, table.placeId] })]);
+
+export const pollVotes = sqliteTable("poll_votes", {
+  pollId: text("poll_id").notNull().references(() => polls.id),
+  placeId: text("place_id").notNull(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  note: text("note").notNull().default(""),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.pollId, table.memberId] })]);

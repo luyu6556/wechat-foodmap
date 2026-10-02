@@ -9,20 +9,23 @@ export type MapPlace = { id: string; name: string; lat: number; lng: number; col
 type Props = {
   places?: MapPlace[];
   selectedId?: string | null;
+  focusId?: string | null;
   picked?: { lat: number; lng: number } | null;
   pickMode?: boolean;
   onSelect?: (id: string) => void;
   onPick?: (point: { lat: number; lng: number }) => void;
+  onBlankClick?: () => void;
   className?: string;
 };
 
-export default function MapCanvas({ places = [], selectedId, picked, pickMode, onSelect, onPick, className = "" }: Props) {
+export default function MapCanvas({ places = [], selectedId, focusId, picked, pickMode, onSelect, onPick, onBlankClick, className = "" }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
   const pickRef = useRef(onPick);
   const selectRef = useRef(onSelect);
+  const blankRef = useRef(onBlankClick);
   const pickModeRef = useRef(pickMode);
   const initialFitRef = useRef(false);
   const [ready, setReady] = useState(false);
@@ -30,8 +33,9 @@ export default function MapCanvas({ places = [], selectedId, picked, pickMode, o
   useEffect(() => {
     pickRef.current = onPick;
     selectRef.current = onSelect;
+    blankRef.current = onBlankClick;
     pickModeRef.current = pickMode;
-  }, [onPick, onSelect, pickMode]);
+  }, [onPick, onSelect, onBlankClick, pickMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +56,10 @@ export default function MapCanvas({ places = [], selectedId, picked, pickMode, o
       L.control.zoom({ position: "bottomright" }).addTo(current);
       markersRef.current = L.layerGroup().addTo(current);
       current.on("click", (event: Leaflet.LeafletMouseEvent) => {
-        if (pickModeRef.current) pickRef.current?.({ lat: event.latlng.lat, lng: event.latlng.lng });
+        // 选点模式：点在哪儿取哪儿。平时：点地图空白处 = 收起标记卡片。
+        // Leaflet 的 marker 默认 bubblingMouseEvents:false，所以点标记不会把卡片关掉。
+        if (!pickModeRef.current) { blankRef.current?.(); return; }
+        pickRef.current?.({ lat: event.latlng.lat, lng: event.latlng.lng });
       });
       setReady(true);
       setTimeout(() => current?.invalidateSize(), 50);
@@ -94,7 +101,11 @@ export default function MapCanvas({ places = [], selectedId, picked, pickMode, o
       L.marker([picked.lat, picked.lng], { icon, interactive: false }).addTo(markersRef.current);
     }
     if (picked) map.setView([picked.lat, picked.lng], Math.max(map.getZoom(), 15), { animate: true });
-    else if (selectedId) {
+    else if (focusId) {
+      // 详情页「在地图中查看」跳过来的定位：居中并放大到该点。
+      const target = places.find((place) => place.id === focusId);
+      if (target) map.setView([target.lat, target.lng], Math.max(map.getZoom(), 16), { animate: true });
+    } else if (selectedId) {
       const selected = places.find((place) => place.id === selectedId);
       if (selected) map.panTo([selected.lat, selected.lng], { animate: true });
     } else if (!initialFitRef.current && places.length) {
@@ -102,7 +113,7 @@ export default function MapCanvas({ places = [], selectedId, picked, pickMode, o
       if (places.length === 1) map.setView([places[0].lat, places[0].lng], 14);
       else map.fitBounds(L.latLngBounds(places.map((place) => [place.lat, place.lng])), { padding: [35, 35], maxZoom: 14 });
     }
-  }, [ready, places, selectedId, picked]);
+  }, [ready, places, selectedId, focusId, picked]);
 
   return <div ref={elementRef} className={`map-canvas ${pickMode ? "map-canvas-pick" : ""} ${className}`} aria-label={pickMode ? "点按地图选择地点位置" : "地点地图"} />;
 }
