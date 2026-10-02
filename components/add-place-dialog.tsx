@@ -16,6 +16,7 @@ type Category = "美食" | "玩乐";
 
 type EditablePlace = {
   id: string; name: string; address: string; category: Category; lat: number; lng: number;
+  recommendation?: string;
   cuisine?: string;
   platformRating?: number | null;
   ratingCount?: number | null;
@@ -28,6 +29,8 @@ type Draft = {
   key: string;
   preview: string | null;
   name: string; address: string; category: Category;
+  // 添加者自己写的推荐理由，选填；识别永远产不出它。
+  recommendation: string;
   cuisine: string; platformRating: string; ratingCount: string; avgPrice: string;
   lat: number | null; lng: number | null;
   sourceText: string; sourceUrl: string | null; sourcePlatform: string; rawText: string;
@@ -54,6 +57,7 @@ function nextKey() { sequence += 1; return `draft-${sequence}`; }
 function blankDraft(patch: Partial<Draft> = {}): Draft {
   return {
     key: nextKey(), preview: null, name: "", address: "", category: "美食",
+    recommendation: "",
     cuisine: "", platformRating: "", ratingCount: "", avgPrice: "",
     lat: null, lng: null, sourceText: "", sourceUrl: null, sourcePlatform: "手动输入",
     rawText: "", stage: "", message: "", error: "", existingId: null, editingId: null, candidates: [],
@@ -65,6 +69,7 @@ function draftFromInitial(initial: EditablePlace): Draft {
   return blankDraft({
     name: initial.name, address: initial.address, category: initial.category,
     lat: initial.lat, lng: initial.lng,
+    recommendation: initial.recommendation || "",
     cuisine: initial.cuisine || "",
     platformRating: initial.platformRating != null ? String(initial.platformRating) : "",
     ratingCount: initial.ratingCount != null ? String(initial.ratingCount) : "",
@@ -299,6 +304,7 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
   async function persist(draft: Draft) {
     const body = jsonBody({
       name: draft.name.trim(), address: draft.address, category: draft.category,
+      recommendation: draft.recommendation,
       lat: draft.lat, lng: draft.lng, sourceText: draft.sourceText, sourceUrl: draft.sourceUrl,
       sourcePlatform: draft.sourcePlatform, cuisine: draft.cuisine,
       platformRating: draft.platformRating, ratingCount: draft.ratingCount, avgPrice: draft.avgPrice,
@@ -501,6 +507,15 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
               <input className="text-field place-address-field" id="place-address" value={active.address} maxLength={200}
                 onChange={(event) => updateDraft(active.key, { address: event.target.value })} placeholder="街道、商场或地标" />
             </div>
+          </div>
+          {/* 推荐理由只由人写，识别产不出它 —— 所以刻意放在上面那个「核对识别结果」高亮块之外，
+              否则会读成「这也是认出来的、也要核对」。 */}
+          <div className="field-block">
+            <label className="field-label" htmlFor="place-recommendation">推荐理由（选填）</label>
+            <textarea className="text-field" id="place-recommendation" rows={3} maxLength={150}
+              value={active.recommendation}
+              onChange={(event) => updateDraft(active.key, { recommendation: event.target.value })}
+              placeholder="为什么推荐这家？好不好停车、要不要排队、几点去最合适…" />
           </div>
           <div className="field-grid even">
             <div className="field-block">

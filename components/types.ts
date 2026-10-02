@@ -4,6 +4,8 @@ export type PlaceSummary = {
   id: string;
   name: string;
   address: string;
+  // 添加者自己写的推荐理由，选填；详情页有内容才显示那一段。
+  recommendation: string;
   category: "美食" | "玩乐";
   lat: number;
   lng: number;

@@ -5,6 +5,7 @@ export async function GET() {
     const rows = await db().prepare(`
       SELECT p.id, p.name, p.address, p.category, p.lat, p.lng, p.source_platform AS sourcePlatform,
         p.cuisine, p.platform_rating AS platformRating, p.rating_count AS ratingCount, p.avg_price AS avgPrice,
+        p.recommendation,
         p.created_at AS createdAt, p.created_by AS creatorId, m.name AS creatorName, m.color AS creatorColor,
         (SELECT COUNT(*) FROM likes l WHERE l.place_id = p.id) AS likesCount,
         (SELECT COUNT(*) FROM visits v WHERE v.place_id = p.id) AS visitsCount,
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
     const body = await parseJson(request);
     const name = clean(body.name, 80);
     const address = clean(body.address, 200);
+    // 添加者自己写的推荐理由，选填。识别产不出它，所以这里只接受人手输入。
+    const recommendation = clean(body.recommendation, 150);
     const category = body.category === "玩乐" ? "玩乐" : "美食";
     const lat = Number(body.lat);
     const lng = Number(body.lng);
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
     }
     if (!name) return fail("请填写地点名称");
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return fail("请在地图上选择地点位置");
+      return fail("还没定位到，请用「用当前位置」或手动输入坐标");
     }
     const database = db();
     const duplicate = sourceUrl
@@ -56,10 +59,10 @@ export async function POST(request: Request) {
     const id = crypto.randomUUID();
     const now = Date.now();
     await database.prepare(`INSERT INTO places
-      (id, name, address, category, lat, lng, source_text, source_url, source_platform,
+      (id, name, address, recommendation, category, lat, lng, source_text, source_url, source_platform,
         cuisine, platform_rating, rating_count, avg_price, source_raw, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, name, address, category, lat, lng, sourceText, sourceUrl, sourcePlatform,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, name, address, recommendation, category, lat, lng, sourceText, sourceUrl, sourcePlatform,
         cuisine, platformRating, ratingCount, avgPrice, sourceRaw, member.id, now, now).run();
     return Response.json({ id }, { status: 201 });
   } catch (error) {

@@ -85,6 +85,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .text-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #f9d9cd; }
 .text-field::placeholder { color: #9ba9a1; }
 textarea.text-field { resize: vertical; min-height: 86px; }
+/* select 必须关掉原生外观：iOS Safari 的原生下拉按系统方式自绘，不受上面的
+   padding / min-height 约束，于是同一个 .field-grid.even 里「类型」框会比「人均价格」框矮一截
+   （用户 2026-10-02 报的就是这个）。appearance:none 后 select 和 input 走同一套盒模型，
+   箭头改成自绘的背景图，右侧留出 40px 免得文字压到箭头。 */
+select.text-field { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23596963' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 15px 15px; padding-right: 40px; }
 .color-label { margin-top: 21px; }
 .color-grid { display: flex; flex-wrap: wrap; gap: 11px; margin-bottom: 25px; }
 .color-option { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #dfe5df; }
@@ -126,11 +131,12 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .detail-drag { display: none; }
 .detail-close { background: var(--soft); }
 .detail-loading { padding: 45px 25px; color: var(--muted); }
-.detail-photo-hero { height: 255px; position: relative; cursor: pointer; background: var(--soft); }
-.detail-photo-hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.detail-photo-hero span { position: absolute; right: 16px; bottom: 14px; color: #fff; background: #14221cb0; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-.detail-photo-empty { display: flex; align-items: center; gap: 17px; height: 150px; background: #fbf6f0; color: var(--muted); font-size: 14px; padding: 15px 27px; }
-.detail-photo-empty img { width: 110px; height: 110px; border-radius: 15px; object-fit: cover; }
+/* 顶部照片封面整栏取消（2026-10-02），这条竖条改成承载「推荐理由」：
+   左侧色条 + 浅底，把它和上面的平台数据（菜系/评分/人均）在视觉上分开。
+   正文 --ink；标签用 --accent-press（在 --soft 上 5.49:1 达 AA，--accent-dark 只有 4.42:1）。 */
+.detail-recommendation { margin: 13px 0 0; padding: 12px 14px; background: var(--soft); border-left: 3px solid var(--accent); border-radius: 0 11px 11px 0; }
+.detail-recommendation-label { display: block; margin-bottom: 4px; color: var(--accent-press); font-size: 12px; font-weight: 750; }
+.detail-recommendation p { margin: 0; color: var(--ink); font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .detail-body { padding: 22px 26px 35px; }
 .detail-category { display: inline-block; color: var(--accent-dark); font-size: 12px; font-weight: 800; margin-bottom: 7px; }
 .detail-body h2 { margin: 0; font-size: 26px; line-height: 1.3; letter-spacing: -.03em; }
@@ -165,11 +171,6 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .visitor { display: flex; align-items: center; gap: 7px; font-size: 14px; }
 .visitor .member-avatar { width: 28px; height: 28px; font-size: 13px; }
 .muted-copy { color: var(--muted); font-size: 14px; margin: 13px 0 0; }
-.upload-button { display: inline-flex; align-items: center; gap: 5px; min-height: 38px; color: var(--accent-dark); font-size: 14px; font-weight: 750; cursor: pointer; }
-.upload-button input { display: none; }
-.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 13px; }
-.photo-grid button { padding: 0; border: 0; background: var(--soft); aspect-ratio: 1; overflow: hidden; border-radius: 8px; }
-.photo-grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .comment-form { display: flex; gap: 8px; margin-top: 14px; }
 .comment-form .text-field { min-width: 0; flex: 1; }
 .comment-form .primary-button { flex: none; }
@@ -183,9 +184,6 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .comment-meta time { color: var(--muted); font-size: 12px; }
 .comment-item p { font-size: 14px; line-height: 1.55; margin: 5px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .detail-credit { font-size: 12px; color: var(--muted); margin: 20px 0; }
-.lightbox { position: fixed; z-index: 2000; inset: 0; display: grid; place-items: center; padding: 20px; background: #07130df2; }
-.lightbox img { max-width: 100%; max-height: 90dvh; object-fit: contain; }
-.lightbox-close { position: absolute; right: 16px; top: 16px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: #ffffff29; color: #fff; }
 .toast { position: fixed; z-index: 2200; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 30px); padding: 11px 17px; border-radius: 10px; background: var(--ink); color: #fff; box-shadow: 0 7px 20px #10241f40; font-size: 14px; text-align: center; white-space: nowrap; }
 
 @media (max-width: 780px) {
@@ -197,7 +195,6 @@ textarea.text-field { resize: vertical; min-height: 86px; }
   .detail-panel { top: auto; bottom: 0; width: 100%; height: min(92dvh, 890px); border-radius: 19px 19px 0 0; overflow: hidden; }
   .detail-topline { height: 51px; justify-content: space-between; }
   .detail-drag { display: block; width: 39px; height: 4px; margin-left: calc(50% - 20px); background: #cbd5cd; border-radius: 99px; }
-  .detail-photo-hero { height: 200px; }
   .detail-body { padding: 21px 20px calc(30px + env(safe-area-inset-bottom)); }
   .detail-body h2 { font-size: 23px; }
   .add-backdrop { padding: 0; }
@@ -393,9 +390,6 @@ body { background: #f4f5f3; }
 .manage-menu button { display: block; width: 100%; min-height: 39px; padding: 0 10px; border: 0; background: none; border-radius: 7px; text-align: left; color: var(--ink); font-size: 14px; }
 .manage-menu button:hover { background: var(--soft); }
 .manage-menu button.danger { color: #b53d2b; }
-.photo-cell { position: relative; aspect-ratio: 1; }
-.photo-cell > button:first-child { width: 100%; height: 100%; }
-.photo-delete { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #14221cc9; color: #fff; }
 .comment-controls { display: flex; gap: 14px; margin-top: 6px; }
 .comment-controls button, .comment-edit button { padding: 3px 0; border: 0; background: none; color: var(--accent-dark); font-size: 12px; font-weight: 700; }
 .comment-controls button:last-child { color: #a95042; }

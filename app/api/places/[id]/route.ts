@@ -7,7 +7,7 @@ export async function GET(request: Request, context: Context) {
     const { id } = await context.params;
     const database = db();
     const place = await database.prepare(`
-      SELECT p.id, p.name, p.address, p.category, p.lat, p.lng,
+      SELECT p.id, p.name, p.address, p.recommendation, p.category, p.lat, p.lng,
         p.source_text AS sourceText, p.source_url AS sourceUrl, p.source_platform AS sourcePlatform,
         p.cuisine, p.platform_rating AS platformRating, p.rating_count AS ratingCount,
         p.avg_price AS avgPrice, p.source_raw AS sourceRaw,
@@ -60,6 +60,8 @@ export async function PATCH(request: Request, context: Context) {
     const body = await parseJson(request);
     const name = clean(body.name, 80);
     const address = clean(body.address, 200);
+    // 理由写错了也要能改，所以和菜系/评分一样是可写字段。
+    const recommendation = clean(body.recommendation, 150);
     const category = body.category === "玩乐" ? "玩乐" : "美食";
     const lat = Number(body.lat);
     const lng = Number(body.lng);
@@ -69,10 +71,10 @@ export async function PATCH(request: Request, context: Context) {
     const ratingCount = optionalNumber(body.ratingCount, 0, 10_000_000, true);
     const avgPrice = optionalNumber(body.avgPrice, 0, 100_000, true);
     if (!name) return fail("请填写地点名称");
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return fail("请在地图上选择地点位置");
-    await database.prepare(`UPDATE places SET name = ?, address = ?, category = ?, lat = ?, lng = ?,
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return fail("还没定位到，请用「用当前位置」或手动输入坐标");
+    await database.prepare(`UPDATE places SET name = ?, address = ?, recommendation = ?, category = ?, lat = ?, lng = ?,
       cuisine = ?, platform_rating = ?, rating_count = ?, avg_price = ?, updated_at = ? WHERE id = ?`)
-      .bind(name, address, category, lat, lng, cuisine, platformRating, ratingCount, avgPrice, Date.now(), id).run();
+      .bind(name, address, recommendation, category, lat, lng, cuisine, platformRating, ratingCount, avgPrice, Date.now(), id).run();
     return Response.json({ ok: true });
   } catch (error) {
     return serverError(error);

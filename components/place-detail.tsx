@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, Check, Heart, MapPin, MapPinned, MoreHorizontal, Navigation, Star, Trash2, Users, X } from "lucide-react";
+import { Check, Heart, MapPin, MapPinned, MoreHorizontal, Navigation, Star, Users, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
 import { memberColorStyle } from "../lib/color";
-import { preparePhoto } from "../lib/image-compress";
 import { detectSourcePlatform } from "../lib/resolve";
 import AddPlaceDialog from "./add-place-dialog";
 import type { PlaceDetailData } from "./types";
@@ -38,7 +37,6 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [lightbox, setLightbox] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
@@ -50,14 +48,6 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
       await api(`/api/places/${data.place.id}`, { method: "DELETE" });
       await onDeleted();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "删除失败"); }
-    finally { setBusy(""); }
-  }
-
-  async function deletePhoto(id: string) {
-    if (!window.confirm("永久删除这张照片？")) return;
-    setBusy(`photo-${id}`); setError("");
-    try { await api(`/api/photos/${id}`, { method: "DELETE" }); await onRefresh(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "删除照片失败"); }
     finally { setBusy(""); }
   }
 
@@ -106,24 +96,6 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
     } finally { setBusy(""); }
   }
 
-  async function upload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!data || !file) return;
-    setBusy("photo");
-    setError("");
-    try {
-      const form = new FormData();
-      form.append("photo", await preparePhoto(file));
-      await api(`/api/places/${data.place.id}/photos`, { method: "POST", body: form });
-      await onRefresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "上传失败");
-    } finally {
-      setBusy("");
-      event.target.value = "";
-    }
-  }
-
   const place = data?.place;
   // 一次算好给下面两处用（避免同一个判断调用三遍）。
   const sourcePlatform = place ? sourcePlatformOf(place) : "";
@@ -139,12 +111,8 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
           <button className="icon-button detail-close" onClick={onClose} aria-label="关闭"><X size={21} /></button>
         </div></div>
         {loading && !data ? <div className="detail-loading">正在打开地点…</div> : !place ? <div className="detail-loading">暂时无法打开这个地点</div> : <>
-          {data.photos.length > 0 ? <div className="detail-photo-hero" onClick={() => setLightbox(data.photos[0].id)} role="button" tabIndex={0}
-            onKeyDown={(event) => { if (event.key === "Enter") setLightbox(data.photos[0].id); }}>
-            <img src={`/api/photos/${data.photos[0].id}`} alt={`${place.name} 的照片`} />
-            <span>{data.photos.length} 张照片</span>
-          </div> : <div className="detail-photo-empty"><img src="/food-empty.png" alt="一碗热腾腾的面" /><span>还没有照片，来分享第一张</span></div>}
-
+          {/* 顶部照片封面整栏取消（2026-10-02）：线上 6 个地点一个照片都没有，这一栏只是白占 255px 高度。
+              后端 /api/photos、photos 表与 R2 文件都保留，将来想恢复只动这一个组件。 */}
           <div className="detail-body">
             <div className="detail-category">{place.category}</div>
             <h2>{place.name}</h2>
@@ -153,6 +121,11 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
               {place.cuisine && <span>菜系 <b>{place.cuisine}</b></span>}
               {place.platformRating != null && <span>平台评分 <b>{Number(place.platformRating).toFixed(1)}</b>{place.ratingCount ? ` · ${place.ratingCount} 条` : ""}</span>}
               {place.avgPrice != null && <span>人均 <b>¥{place.avgPrice}</b></span>}
+            </div>}
+            {/* 添加者自己写的一句推荐理由，没写就整块不出现（不留空标签）。 */}
+            {place.recommendation && <div className="detail-recommendation">
+              <span className="detail-recommendation-label">推荐理由</span>
+              <p>{place.recommendation}</p>
             </div>}
             <div className="detail-links">
               <button type="button" className="secondary-button" onClick={onShowOnMap}><MapPinned size={17} />在地图中查看</button>
@@ -194,12 +167,8 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
                 : <p className="muted-copy">还没有人标记去过</p>}
             </section>
 
-            <section className="detail-section">
-              <div className="section-title-row"><h3>群友照片</h3><label className="upload-button"><Camera size={18} />{busy === "photo" ? "上传中…" : "上传照片"}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => void upload(event)} disabled={!!busy} /></label></div>
-              {data.photos.length ? <div className="photo-grid">{data.photos.map((photo) => <div className="photo-cell" key={photo.id}><button onClick={() => setLightbox(photo.id)} aria-label={`查看 ${photo.memberName} 上传的照片`}>
-                <img src={`/api/photos/${photo.id}`} alt={`${photo.memberName} 上传的地点照片`} loading="lazy" />
-              </button>{photo.canManage && <button className="photo-delete" onClick={() => void deletePhoto(photo.id)} aria-label="删除照片" disabled={!!busy}><Trash2 size={15} /></button>}</div>)}</div> : <p className="muted-copy">拍过这里？上传一张给大家看看。</p>}
-            </section>
+            {/* 「群友照片」整节取消（2026-10-02）：入口一起去掉，详情页不再有传/看照片的地方。
+                后端路由、photos 表与 R2 文件都没动，需要时把这个 section 加回来即可。 */}
 
             <section className="detail-section comments-section">
               <h3>评论 · {data.comments.length}</h3>
@@ -221,10 +190,6 @@ export default function PlaceDetail({ data, loading, onClose, onShowOnMap, onRef
         </>}
       </div>
     </section>
-    {lightbox && <div className="lightbox" role="dialog" aria-modal="true" aria-label="查看照片" onClick={() => setLightbox(null)}>
-      <button className="lightbox-close" onClick={() => setLightbox(null)} aria-label="关闭照片"><X size={26} /></button>
-      <img src={`/api/photos/${lightbox}`} alt="地点照片大图" onClick={(event) => event.stopPropagation()} />
-    </div>}
     {editOpen && data && <AddPlaceDialog initial={data.place} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); void onRefresh(); }} />}
   </>;
 }

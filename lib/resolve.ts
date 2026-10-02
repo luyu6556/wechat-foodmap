@@ -209,7 +209,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
   const match = raw.match(URL_RE);
   if (!match) {
     const name = fields.names[0] || raw.split(/[\n，,]/)[0]?.slice(0, 80) || "";
-    return { name, address: fields.address || texted, lat: null, lng: null, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称，并在地图上选择位置。" };
+    return { name, address: fields.address || texted, lat: null, lng: null, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称和地址。" };
   }
 
   let url: URL;

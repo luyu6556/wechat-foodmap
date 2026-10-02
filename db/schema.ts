@@ -27,6 +27,8 @@ export const places = sqliteTable("places", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   address: text("address").notNull(),
+  // 添加者自己写的一句推荐理由（选填）。识别永远产不出它，只能人手输入，所以空串是常态。
+  recommendation: text("recommendation").notNull().default(""),
   category: text("category").notNull(),
   lat: real("lat").notNull(),
   lng: real("lng").notNull(),

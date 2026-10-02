@@ -1,0 +1,1 @@
+ALTER TABLE `places` ADD `recommendation` text DEFAULT '' NOT NULL;
