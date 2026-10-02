@@ -25,10 +25,10 @@ test("点评小程序口令只从附带文案提名称，不猜坐标", () => {
   const result = resolveSharedText("巷子里的重庆小面\n#小程序://大众点评美食电影运动旅游门票/A8bd4qMWSBWQT1p");
   assert.equal(result.name, "巷子里的重庆小面");
   assert.equal(result.lat, null);
-  assert.match(result.message, /选点/);
+  assert.match(result.message, /不含公开坐标/);
 });
 
-test("未知链接保留来源并要求选点，仿冒域名不会被标为美团", () => {
+test("未知链接保留来源且不猜坐标，仿冒域名不会被标为美团", () => {
   const result = resolveSharedText("https://evilmeituan.com/poi/12");
   assert.equal(result.sourcePlatform, "网页链接");
   assert.equal(result.lat, null);
@@ -54,7 +54,9 @@ test("美团短链分享文案：店名取【】首段，地址取【地址：�
   assert.equal(result.sourcePlatform, "美团");
   assert.equal(result.sourceUrl, "http://dpurl.cn/C3BkQc4z");
   assert.equal(result.lat, null);
-  assert.match(result.message, /选点/);
+  // 去掉「点地图选点」后，兜底话术变了：文案只说明来源，位置交给识别后的自动反查 /
+  // 「用当前位置」/ 手动坐标。断言跟着改，别留一条指向已删除交互的期望。
+  assert.match(result.message, /请核对店名、地址/);
 });
 
 test("来源平台：文案标记 > 域名 > 判不出就不猜", () => {

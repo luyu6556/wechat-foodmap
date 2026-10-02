@@ -208,7 +208,7 @@ async function amapLocate(name: string, address: string, city: string): Promise<
         candidates: hits.slice(0, POI_PAGE_SIZE),
         message: exact.length > 1
           ? "找到多家同名的店，请选择正确的那家。"
-          : "没找到这家分店，下面是同品牌的其他门店，请选择或在地图上点选。",
+          : "没找到这家分店，下面是同品牌的其他门店，请选一家。",
       };
     }
   }
@@ -234,7 +234,7 @@ async function amapLocate(name: string, address: string, city: string): Promise<
 
   return {
     lat: null, lng: null, source: "none", confidence: 0, matchedName: "", candidates: [],
-    message: "没能可靠定位到这家店，请在地图上点选位置。",
+    message: "没能可靠定位到这家店，请用「用当前位置」或手动输入坐标。",
   };
 }
 

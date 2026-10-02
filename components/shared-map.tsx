@@ -9,9 +9,7 @@ type Props = {
   selectedId?: string | null;
   focusId?: string | null;
   picked?: { lat: number; lng: number } | null;
-  pickMode?: boolean;
   onSelect?: (id: string) => void;
-  onPick?: (point: { lat: number; lng: number }) => void;
   onBlankClick?: () => void;
   className?: string;
 };

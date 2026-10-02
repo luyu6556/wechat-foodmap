@@ -81,7 +81,7 @@ function isPristine(draft: Draft) {
 
 function checkDraft(draft: Draft) {
   if (!draft.name.trim()) return "请填写地点名称";
-  if (draft.lat === null || draft.lng === null) return "请点地图选择地点位置";
+  if (draft.lat === null || draft.lng === null) return "还没定位到，请用「用当前位置」或手动输入坐标";
   return "";
 }
 
@@ -93,9 +93,9 @@ function draftStatus(draft: Draft): { text: string; tone: "muted" | "warn" | "ok
   if (draft.existingId) return { text: "群里已有", tone: "warn" };
   if (draft.candidates.length && (draft.lat === null || draft.lng === null)) return { text: "待选门店", tone: "warn" };
   // 「没读出内容」和「读出来了但没定位到」是两件事，提示语不能混：前者要人重传或手填，
-  // 后者只要在图上点一下。
+  // 后者要靠「用当前位置」或手动坐标补一个位置。
   if (!draft.name.trim() && !draft.address.trim()) return { text: "没读出内容", tone: "warn" };
-  if (draft.lat === null || draft.lng === null) return { text: "待点图选点", tone: "warn" };
+  if (draft.lat === null || draft.lng === null) return { text: "待定位", tone: "warn" };
   if (!draft.name.trim()) return { text: "缺名称", tone: "warn" };
   return { text: "可保存", tone: "ok" };
 }
@@ -169,7 +169,9 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
     if (activeKey === key) setActiveKey(null);
   }
 
-  // 截图里没有坐标，图钉只能靠名称/地址反查。返回提示文案，交给调用方拼进该条的说明。
+  // 截图里没有坐标，图钉只能靠名称/地址反查。这是**唯一**会产出图钉的自动路径，
+  // 用户不能点地图改标记 —— 反查不出来就只剩「用当前位置」和手动坐标两条兜底。
+  // 返回提示文案，交给调用方拼进该条的说明。
   async function locateInto(key: string, look: { name: string; address: string }) {
     if (!look.name && !look.address) return "";
     updateDraft(key, { stage: "locating", error: "", candidates: [] });
@@ -182,12 +184,12 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
       if (value.lat !== null && value.lng !== null) {
         updateDraft(key, { lat: value.lat, lng: value.lng, candidates: [] });
       } else {
-        // 定位没落定：要么让用户从候选里挑一家，要么让他在地图上点。
+        // 定位没落定：要么让用户从候选里挑一家，要么让他用「用当前位置」/手动坐标兜底。
         updateDraft(key, { lat: null, lng: null, candidates: value.candidates || [] });
       }
       return value.message;
     } catch (cause) {
-      return cause instanceof Error ? `${cause.message}，请在地图上点选位置。` : "自动定位失败，请在地图上点选位置。";
+      return cause instanceof Error ? `${cause.message}，请用「用当前位置」或手动输入坐标。` : "自动定位失败，请用「用当前位置」或手动输入坐标。";
     }
   }
 
@@ -285,11 +287,11 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
   }
 
   function locate() {
-    if (!navigator.geolocation) { setError("当前浏览器不支持定位，请点地图选位置"); return; }
+    if (!navigator.geolocation) { setError("当前浏览器不支持定位，请手动输入坐标"); return; }
     const key = active.key;
     navigator.geolocation.getCurrentPosition(
       (position) => { updateDraft(key, { lat: position.coords.latitude, lng: position.coords.longitude }); setError(""); },
-      () => setError("无法获取当前位置，请点地图选位置"),
+      () => setError("无法获取当前位置，请手动输入坐标"),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
@@ -437,7 +439,7 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
             <div className="section-heading"><ListChecks size={19} /><strong>待保存</strong>
               <span className="draft-count">{drafts.length}/{MAX_DRAFTS}</span>
             </div>
-            <p className="draft-hint">点一条改下面的字段；标着「待点图选点」的，选它之后在下面的地图上点一下补位置。</p>
+            <p className="draft-hint">点一条改下面的字段；标着「待定位」的，选它之后用「用当前位置」或手动输入坐标补位置。</p>
             <div className="draft-list">
               {drafts.map((draft, index) => {
                 const status = draftStatus(draft);
@@ -525,12 +527,12 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
           </div>
           <p className="field-hint">平台评分与人均来自美团／大众点评截图，会过时，和群里自己的评分是两回事。</p>
           <div className="location-heading">
-            <div><span className="field-label">地图位置 <span>*</span></span><p>点按地图放置图钉</p></div>
+            <div><span className="field-label">地图位置 <span>*</span></span><p>识别出地址后自动定位，地图仅作核对</p></div>
             <button type="button" className="text-button" onClick={locate}><Crosshair size={17} />用当前位置</button>
           </div>
           {active.candidates.length > 0 && <div className="candidate-block">
             <div className="section-heading"><MapPinned size={19} /><strong>找到多家，选一家</strong></div>
-            <p className="draft-hint">{active.message || "同名门店不止一家，点正确的那家；都不是就在地图上点。"}</p>
+            <p className="draft-hint">{active.message || "同名门店不止一家，点正确的那家；都不是就手动输入坐标。"}</p>
             <div className="candidate-list">
               {active.candidates.map((candidate, index) => <button type="button" className="candidate-row"
                 key={`${candidate.name}-${candidate.lat}-${index}`}
@@ -540,13 +542,15 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
               </button>)}
             </div>
           </div>}
-          <MapCanvas pickMode places={otherPins} picked={active.lat !== null && active.lng !== null ? { lat: active.lat, lng: active.lng } : null}
-            onPick={(point) => updateDraft(active.key, { lat: point.lat, lng: point.lng, error: "", candidates: [] })} className="picker-map" />
+          {/* 地图只做展示，不接受点按取点：手机上在地图上点准一家店本来就很难，点歪了还看不出来，
+              而图钉本来就能由识别的地址反查出来。要改位置只剩「用当前位置」和手动输入坐标两条路。 */}
+          <MapCanvas places={otherPins} picked={active.lat !== null && active.lng !== null ? { lat: active.lat, lng: active.lng } : null}
+            className="picker-map" />
           <div className="coordinate-row"><MapPin size={16} />{active.lat !== null && active.lng !== null
-            ? `已选位置：${active.lat.toFixed(5)}, ${active.lng.toFixed(5)}`
-            : showList ? `「${active.name.trim() || "这一条"}」还没有位置，在图上点一下` : "还没有选择位置"}</div>
+            ? `已定位：${active.lat.toFixed(5)}, ${active.lng.toFixed(5)}`
+            : "还没定位到：用「用当前位置」，或在下面手动输入坐标"}</div>
           <details className="coordinate-manual">
-            <summary>地图无法选点？手动输入坐标</summary>
+            <summary>位置不对？手动输入坐标</summary>
             <div className="coordinate-inputs">
               <input className="text-field" type="number" step="any" aria-label="纬度" placeholder="纬度" value={active.lat ?? ""}
                 onChange={(event) => updateDraft(active.key, { lat: Number(event.target.value), lng: active.lng ?? 114.06 })} />

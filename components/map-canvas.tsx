@@ -11,31 +11,25 @@ type Props = {
   selectedId?: string | null;
   focusId?: string | null;
   picked?: { lat: number; lng: number } | null;
-  pickMode?: boolean;
   onSelect?: (id: string) => void;
-  onPick?: (point: { lat: number; lng: number }) => void;
   onBlankClick?: () => void;
   className?: string;
 };
 
-export default function MapCanvas({ places = [], selectedId, focusId, picked, pickMode, onSelect, onPick, onBlankClick, className = "" }: Props) {
+export default function MapCanvas({ places = [], selectedId, focusId, picked, onSelect, onBlankClick, className = "" }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
   const markersRef = useRef<Leaflet.LayerGroup | null>(null);
-  const pickRef = useRef(onPick);
   const selectRef = useRef(onSelect);
   const blankRef = useRef(onBlankClick);
-  const pickModeRef = useRef(pickMode);
   const initialFitRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    pickRef.current = onPick;
     selectRef.current = onSelect;
     blankRef.current = onBlankClick;
-    pickModeRef.current = pickMode;
-  }, [onPick, onSelect, onBlankClick, pickMode]);
+  }, [onSelect, onBlankClick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +49,10 @@ export default function MapCanvas({ places = [], selectedId, focusId, picked, pi
       }).addTo(current);
       L.control.zoom({ position: "bottomright" }).addTo(current);
       markersRef.current = L.layerGroup().addTo(current);
-      current.on("click", (event: Leaflet.LeafletMouseEvent) => {
-        // 选点模式：点在哪儿取哪儿。平时：点地图空白处 = 收起标记卡片。
-        // Leaflet 的 marker 默认 bubblingMouseEvents:false，所以点标记不会把卡片关掉。
-        if (!pickModeRef.current) { blankRef.current?.(); return; }
-        pickRef.current?.({ lat: event.latlng.lat, lng: event.latlng.lng });
+      current.on("click", () => {
+        // 点地图空白处 = 收起标记卡片。Leaflet 的 marker 默认 bubblingMouseEvents:false，
+        // 所以点标记不会把卡片关掉。这里不再有「点图取点」：图钉一律由地址反查得出。
+        blankRef.current?.();
       });
       setReady(true);
       setTimeout(() => current?.invalidateSize(), 50);
@@ -115,5 +108,5 @@ export default function MapCanvas({ places = [], selectedId, focusId, picked, pi
     }
   }, [ready, places, selectedId, focusId, picked]);
 
-  return <div ref={elementRef} className={`map-canvas ${pickMode ? "map-canvas-pick" : ""} ${className}`} aria-label={pickMode ? "点按地图选择地点位置" : "地点地图"} />;
+  return <div ref={elementRef} className={`map-canvas ${className}`} aria-label="地点地图" />;
 }

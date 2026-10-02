@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { gcjToWgs, wgsToGcj } from "../lib/resolve";
+import { wgsToGcj } from "../lib/resolve";
 import { normalizeColor } from "../lib/color";
 import type { MapPlace } from "./map-canvas";
 
@@ -49,27 +49,23 @@ type Props = {
   selectedId?: string | null;
   focusId?: string | null;
   picked?: { lat: number; lng: number } | null;
-  pickMode?: boolean;
   onSelect?: (id: string) => void;
-  onPick?: (point: { lat: number; lng: number }) => void;
   onBlankClick?: () => void;
   onError?: () => void;
   className?: string;
 };
 
-export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, focusId, picked, pickMode, onSelect, onPick, onBlankClick, onError, className = "" }: Props) {
+export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, focusId, picked, onSelect, onBlankClick, onError, className = "" }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<AMapMap | null>(null);
   const amapRef = useRef<AMapGlobal | null>(null);
   const markersRef = useRef<AMapMarker[]>([]);
   const selectRef = useRef(onSelect);
-  const pickRef = useRef(onPick);
   const blankRef = useRef(onBlankClick);
-  const pickModeRef = useRef(pickMode);
   const initialFitRef = useRef(false);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => { selectRef.current = onSelect; pickRef.current = onPick; blankRef.current = onBlankClick; pickModeRef.current = pickMode; }, [onSelect, onPick, onBlankClick, pickMode]);
+  useEffect(() => { selectRef.current = onSelect; blankRef.current = onBlankClick; }, [onSelect, onBlankClick]);
   useEffect(() => {
     let cancelled = false;
     let current: AMapMap | null = null;
@@ -78,12 +74,10 @@ export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, 
       amapRef.current = AMap;
       current = new AMap.Map(elementRef.current, { center: [114.06, 22.55], zoom: 11, resizeEnable: true });
       mapRef.current = current;
-      current.on("click", (event) => {
-        // 选点模式：点在哪儿取哪儿。平时：点地图空白处 = 收起标记卡片。
-        // 高德的标记点击不会冒泡到这里，所以点标记不会顺手把卡片关掉。
-        if (!pickModeRef.current) { blankRef.current?.(); return; }
-        const [lat, lng] = gcjToWgs(event.lnglat.getLat(), event.lnglat.getLng());
-        pickRef.current?.({ lat, lng });
+      current.on("click", () => {
+        // 点地图空白处 = 收起标记卡片。高德的标记点击不会冒泡到这里，所以点标记不会顺手把卡片关掉。
+        // 这里不再有「点图取点」：图钉一律由地址反查得出。
+        blankRef.current?.();
       });
       setReady(true);
     }).catch(() => { if (!cancelled) onError?.(); });
@@ -132,5 +126,5 @@ export default function AmapCanvas({ apiKey, useProxy, places = [], selectedId, 
     markersRef.current = markers;
   }, [ready, places, selectedId, focusId, picked]);
 
-  return <div ref={elementRef} className={`map-canvas amap-canvas ${pickMode ? "map-canvas-pick" : ""} ${className}`} aria-label={pickMode ? "点按地图选择地点位置" : "地点地图"} />;
+  return <div ref={elementRef} className={`map-canvas amap-canvas ${className}`} aria-label="地点地图" />;
 }

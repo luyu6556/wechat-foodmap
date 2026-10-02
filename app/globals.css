@@ -44,7 +44,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .header-share:hover, .profile-trigger:hover { background: var(--soft); }
 .member-avatar { display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; font-weight: 750; }
 .map-canvas { height: 100%; width: 100%; z-index: 0; background: #e7eee8; }
-.map-canvas-pick { cursor: crosshair; }
 .primary-button:hover { background: var(--accent-press); }
 .food-map-marker-wrap { background: transparent; border: 0; }
 .food-map-marker { display: grid; place-items: center; width: 36px; height: 36px; background: var(--pin-color, var(--accent)); border: 3px solid #fff; border-radius: 50% 50% 50% 7px; transform: rotate(-45deg); box-shadow: 0 3px 9px #172c2966; }

@@ -202,7 +202,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
     return {
       name, address: fields.address || texted, lat: null, lng: null, sourceUrl: null,
       sourcePlatform: "微信小程序",
-      message: name ? "已从分享文案提取名称。小程序口令不含公开坐标，请核对并在地图上选点。" : "已识别微信小程序口令。口令本身不包含店名和位置，请补填后在地图上选点。",
+      message: name ? "已从分享文案提取名称。小程序口令不含公开坐标。" : "已识别微信小程序口令。口令本身不含店名和位置，请补填名称和地址。",
     };
   }
 
@@ -252,6 +252,6 @@ export function resolveSharedText(input: string): ResolvedPlace {
     name: name.slice(0, 80), address: address.slice(0, 200),
     lat: point?.[0] ?? null, lng: point?.[1] ?? null,
     sourceUrl: url.toString(), sourcePlatform: platform,
-    message: point ? "已从地图链接识别地点和坐标，请核对后保存。" : "已保存来源链接。请核对店名、地址，并在地图上选点。",
+    message: point ? "已从地图链接识别地点和坐标，请核对后保存。" : "已保存来源链接。请核对店名、地址。",
   };
 }
