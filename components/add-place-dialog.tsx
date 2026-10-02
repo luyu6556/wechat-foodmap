@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crosshair, ImageUp, Link2, ListChecks, MapPin, MapPinned, Sparkles, X } from "lucide-react";
+import { BadgeCheck, Crosshair, ImageUp, Link2, ListChecks, MapPin, MapPinned, Sparkles, X } from "lucide-react";
 import { api, ApiError, jsonBody } from "../lib/client-api";
 import { preparePhoto } from "../lib/image-compress";
 import MapCanvas from "./shared-map";
@@ -379,6 +379,12 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
     setNotice(parts.join("；"));
   }
 
+  // 这条草稿的名称/地址是不是「认出来的」（粘贴分享文案或识别截图）？是的话下面把这两项
+  // 单独圈出来提示核对：店名认错、地址认到隔壁店，图钉会稳稳落在错的地方，比缺字段更难发现。
+  // 但要同时有内容才圈 —— 截图没读出东西时也要亮起这块，就成了「请核对两个空框」。
+  const recognized = active.sourcePlatform !== "手动输入"
+    && Boolean(active.name.trim() || active.address.trim());
+
   const otherPins = drafts
     .filter((draft) => draft.key !== active.key && draft.lat !== null && draft.lng !== null)
     .map((draft) => ({ id: draft.key, name: draft.name || "待保存", lat: draft.lat as number, lng: draft.lng as number, color: "#8aa39c" }));
@@ -393,16 +399,22 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
         <div className="add-scroll">
           {canBatch && <div className="import-panel">
             <div className="section-heading"><Link2 size={19} /><strong>从分享内容导入</strong></div>
-            <p>粘贴美团、大众点评或地图分享内容；小程序口令识别不出店名时，改用截图识别。都没有也可以直接填写。
-              <strong>一次最多 {MAX_DRAFTS} 个</strong>，截图可多选，分享内容是一条一条粘。</p>
+            {/* 提示拆成三行、一行一件事：原来那一整段要读完才知道有没有用到的那句，而用户是带着
+                「我是来粘文案的 / 我是来传截图的」其中一种来的，几行短句能直接跳到要看的那行。 */}
+            <ul className="tip-list">
+              <li>粘贴美团、大众点评或地图的分享链接 / 文案</li>
+              <li>小程序口令认不出店名时，改用截图识别</li>
+              <li>一次最多 <strong>{MAX_DRAFTS} 个</strong>：截图可多选，文案一条一条粘</li>
+            </ul>
             <textarea className="text-field share-field" value={sourceText} maxLength={3000}
               onChange={(event) => { setSourceText(event.target.value); setNotice(""); }}
               placeholder="在这里粘贴链接或分享文案…" rows={3} />
-            <button type="button" className="secondary-button" onClick={() => void resolveShare()} disabled={busy}>
-              <Sparkles size={17} />{resolving ? "识别中…" : "识别分享内容"}
-            </button>
-            <div className="shot-row">
-              <label className={`secondary-button shot-button ${busy ? "disabled" : ""}`}>
+            {/* 两个入口等宽并排：在「怎么导入」这件事上它们是平级的两条路，不该一上一下。 */}
+            <div className="import-actions">
+              <button type="button" className="secondary-button" onClick={() => void resolveShare()} disabled={busy}>
+                <Sparkles size={17} />{resolving ? "识别中…" : "识别分享内容"}
+              </button>
+              <label className={`secondary-button ${busy ? "disabled" : ""}`}>
                 <ImageUp size={17} />上传截图识别
                 <input type="file" accept="image/*" multiple disabled={busy}
                   onChange={(event) => {
@@ -411,13 +423,13 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
                     if (files.length) void addShots(files);
                   }} />
               </label>
-              <span className="shot-hint">可一次选多张</span>
-              {/* 只有一条草稿时列表不展开，预览图仍放在这里，和改造前的观感一致 */}
-              {!showList && active.preview && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="shot-preview" src={active.preview} alt="待识别的截图" />
-              )}
             </div>
+            {/* 只有一条草稿时列表不展开，预览图仍放在这里，和改造前的观感一致 */}
+            {!showList && active.preview && <div className="import-preview">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="shot-preview" src={active.preview} alt="待识别的截图" />
+              <span>已选截图</span>
+            </div>}
             {notice && <p className="import-notice" role="status">{notice}</p>}
           </div>}
 
@@ -464,12 +476,31 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
             </div>
           </div>}
 
-          <div className="field-grid">
+          {/* 名称与地址单独成块、各占整行 —— 它们是「这条数据对不对」的全部依据，挤在
+              130px 的窄列里既看不全也核对不了。来自识别时再套一层浅底把它顶出来。 */}
+          <div className={`verify-block${recognized ? " is-verify" : ""}`}>
+            {recognized && <>
+              <div className="section-heading"><BadgeCheck size={19} /><strong>核对识别结果</strong>
+                <span className="verify-tag">{active.sourcePlatform}</span></div>
+              {/* 和导入提示同一种三行短句、同一个 .tip-list —— 两处提示长得一样，才不用重新读一遍 */}
+              <ul className="tip-list">
+                <li>下面两项是从{active.sourcePlatform}认出来的</li>
+                <li>先核对是不是你要找的那家，再往下填</li>
+                <li>认错了就直接改这两个框</li>
+              </ul>
+            </>}
             <div className="field-block">
               <label className="field-label" htmlFor="place-name">地点名称 <span>*</span></label>
-              <input className="text-field" id="place-name" value={active.name} maxLength={80}
+              <input className="text-field place-name-field" id="place-name" value={active.name} maxLength={80}
                 onChange={(event) => updateDraft(active.key, { name: event.target.value, error: "", candidates: [] })} placeholder="店名或想去的地方" />
             </div>
+            <div className="field-block">
+              <label className="field-label" htmlFor="place-address">地址</label>
+              <input className="text-field place-address-field" id="place-address" value={active.address} maxLength={200}
+                onChange={(event) => updateDraft(active.key, { address: event.target.value })} placeholder="街道、商场或地标" />
+            </div>
+          </div>
+          <div className="field-grid even">
             <div className="field-block">
               <label className="field-label" htmlFor="place-category">类型</label>
               <select className="text-field" id="place-category" value={active.category}
@@ -477,37 +508,22 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
                 <option value="美食">美食</option><option value="玩乐">玩乐</option>
               </select>
             </div>
-          </div>
-          <div className="field-grid even">
-            <div className="field-block">
-              <label className="field-label" htmlFor="place-cuisine">菜系 / 品类</label>
-              <input className="text-field" id="place-cuisine" value={active.cuisine} maxLength={20}
-                onChange={(event) => updateDraft(active.key, { cuisine: event.target.value })} placeholder="例如 新疆菜、东北家常菜" />
-            </div>
             <div className="field-block">
               <label className="field-label" htmlFor="place-price">人均价格（元）</label>
               <input className="text-field" id="place-price" type="number" inputMode="numeric" min={0} value={active.avgPrice}
                 onChange={(event) => updateDraft(active.key, { avgPrice: event.target.value })} placeholder="截图里没有就留空" />
             </div>
           </div>
+          {/* 菜系/品类与评价条数已从这里撤掉：前者识别得到就自动带上、列表里照样显示，成员几乎不会手改；
+              后者只作为评分后面的「· 2280 条」出现，也不值得占一个输入框。两者都仍由截图识别写入。 */}
           <div className="field-grid even">
             <div className="field-block">
               <label className="field-label" htmlFor="place-rating">平台评分</label>
               <input className="text-field" id="place-rating" type="number" inputMode="decimal" step="0.1" min={0} max={5} value={active.platformRating}
                 onChange={(event) => updateDraft(active.key, { platformRating: event.target.value })} placeholder="0–5，没有就留空" />
             </div>
-            <div className="field-block">
-              <label className="field-label" htmlFor="place-rating-count">评价条数</label>
-              <input className="text-field" id="place-rating-count" type="number" inputMode="numeric" min={0} value={active.ratingCount}
-                onChange={(event) => updateDraft(active.key, { ratingCount: event.target.value })} placeholder="例如 2280" />
-            </div>
           </div>
           <p className="field-hint">平台评分与人均来自美团／大众点评截图，会过时，和群里自己的评分是两回事。</p>
-          <div className="field-block">
-            <label className="field-label" htmlFor="place-address">地址</label>
-            <input className="text-field" id="place-address" value={active.address} maxLength={200}
-              onChange={(event) => updateDraft(active.key, { address: event.target.value })} placeholder="街道、商场或地标" />
-          </div>
           <div className="location-heading">
             <div><span className="field-label">地图位置 <span>*</span></span><p>点按地图放置图钉</p></div>
             <button type="button" className="text-button" onClick={locate}><Crosshair size={17} />用当前位置</button>

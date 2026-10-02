@@ -99,10 +99,14 @@ textarea.text-field { resize: vertical; min-height: 86px; }
 .import-panel { background: #fbf7f3; border: 1px solid #f0e7df; border-radius: 15px; padding: 17px; margin-bottom: 24px; }
 .section-heading { display: flex; align-items: center; gap: 9px; color: var(--ink); font-size: 16px; }
 .section-heading svg { color: var(--accent-press); }
-.import-panel p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 7px 0 13px; }
+/* 导入提示与核对提示共用：拆成三行短句，一行一件事，比一整段好扫读（文案在 add-place-dialog.tsx）。
+   12px 是刻意的 —— 这两处都是「看一遍就往下走」的辅助文字，不该和字段标签抢注意力。 */
+.tip-list { display: grid; gap: 4px; margin: 8px 0 13px; padding: 0; list-style: none; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.tip-list li { position: relative; padding-left: 13px; }
+.tip-list li::before { content: ""; position: absolute; left: 3px; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.tip-list strong { color: var(--ink); font-weight: 750; }
 .import-panel .share-field { background: #fff; }
-.import-panel .secondary-button { margin-top: 11px; }
-.import-panel .import-notice { color: #566d5f; background: #edf4e9; padding: 9px 11px; border-radius: 9px; margin: 12px 0 0; }
+.import-panel .import-notice { color: #566d5f; background: #edf4e9; font-size: 13px; line-height: 1.55; padding: 9px 11px; border-radius: 9px; margin: 12px 0 0; }
 .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 13px; }
 .field-block { margin-bottom: 17px; }
 .location-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
@@ -406,12 +410,24 @@ body { background: #f4f5f3; }
 /* 截图识别入口：等宽两列字段、截图缩略图与提示文案 */
 .field-grid.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .field-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin: -3px 0 15px; }
-.import-panel .shot-row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
-.import-panel .shot-row .secondary-button { margin-top: 0; position: relative; overflow: hidden; cursor: pointer; }
-.import-panel .shot-row .secondary-button input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.import-panel .shot-row .secondary-button.disabled { opacity: .55; pointer-events: none; }
+/* 识别结果核对块：名称与地址是判断「这条数据对不对」的全部依据，来自识别时把它们圈起来、
+   垫一层浅底，先让人核对再往下走。暖棕文字在 --accent-soft 上约 5–6.5:1，达 AA。 */
+.verify-block.is-verify { padding: 15px 16px 16px; margin-bottom: 20px; background: var(--accent-soft); border: 1px solid #f3cbba; border-radius: 15px; }
+.verify-block.is-verify .verify-tag { margin-left: auto; flex: none; padding: 3px 10px; border-radius: 30px; background: #fff; color: var(--accent-dark); font-size: 12px; font-weight: 750; white-space: nowrap; }
+.verify-block.is-verify .tip-list { color: #8a5a44; margin: 8px 0 15px; }
+.verify-block.is-verify .tip-list li::before { background: var(--accent-press); }
+.verify-block.is-verify .field-label { color: #7c4a36; }
+.verify-block.is-verify .field-block:last-child { margin-bottom: 0; }
+.verify-block.is-verify .place-name-field { font-size: 17px; font-weight: 750; }
+.verify-block.is-verify .place-address-field { font-weight: 600; }
+/* 两个导入入口等宽并排：在「怎么导入」这件事上它们是平级的两条路，不该一上一下。
+   窄屏下每边约 146px，14px 字号才放得下「识别分享内容」六个字加图标。 */
+.import-panel .import-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; margin-top: 11px; }
+.import-panel .import-actions .secondary-button { margin-top: 0; padding: 0 10px; font-size: 14px; position: relative; overflow: hidden; cursor: pointer; }
+.import-panel .import-actions .secondary-button input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.import-panel .import-actions .secondary-button.disabled { opacity: .55; pointer-events: none; }
+.import-preview { display: flex; align-items: center; gap: 9px; margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .shot-preview { width: 44px; height: 44px; flex: 0 0 auto; object-fit: cover; border: 1px solid #f0e7df; border-radius: 9px; }
-.shot-hint { color: var(--muted); font-size: 13px; }
 /* 待保存列表：批量导入时一条识别结果一行，一眼看清哪条能存、哪条还缺东西。
    行内不再嵌「状态药丸 + 删除键」并排（那样正文只剩 200px 宽），药丸移到首行右侧、
    右侧只留一个 44px 的删除键。 */
@@ -419,7 +435,10 @@ body { background: #f4f5f3; }
 .draft-block .section-heading { justify-content: flex-start; }
 .draft-count { margin-left: auto; color: var(--muted); font-size: 13px; font-weight: 750; }
 .draft-hint { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 7px 0 11px; }
-.draft-list { display: grid; gap: 9px; }
+/* 加 minmax(0,1fr) 是必须的：隐式 auto 轨道的最小尺寸取「最小内容宽」，而名称/地址行是
+   white-space:nowrap，最小内容宽就等于整串不折行的文字 —— 店名一长（实测「山葵烤肉by
+   SHANKUI BBQ(东园路2号店)」）轨道就被撑到 471px，右侧徽标被裁出可视区。 */
+.draft-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 9px; }
 .draft-row { display: flex; align-items: center; gap: 8px; padding: 9px 6px 9px 10px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
 .draft-row.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px #df58381a; }
 .draft-main { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: var(--ink); text-align: left; }
