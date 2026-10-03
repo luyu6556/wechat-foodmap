@@ -3,6 +3,10 @@ export type ResolvedPlace = {
   address: string;
   lat: number | null;
   lng: number | null;
+  // 平台评分与人均：只从**分享文案**里认（点评估分/人均就在文案里，短链 URL 参数里没有）。
+  // 认不出就是 null —— 与截图识别的约定一致，绝不用 0 冒充「没有」。
+  platformRating: number | null;
+  avgPrice: number | null;
   sourceUrl: string | null;
   sourcePlatform: string;
   message: string;
@@ -97,6 +101,54 @@ function textAddress(text: string) {
     if (usable(lines[i]) && /\d/.test(lines[i]) && ADDRESS_WEAK.test(lines[i])) return lines[i];
   }
   return "";
+}
+
+// 平台评分与人均同样只在**分享文案**里（`http://dpurl.cn/…` 这类短链的参数里没有任何字段），
+// 必须从文字取。判据按**形态**写，不枚举观测值；每条规则在 tests/resolve.test.mjs 里各拿
+// ≥3 种不同形态的样例过。认不出返回 null，交给「没有就留空」的手填 —— 不猜。
+//
+//   评分：① 显式词「评分 4.6」「评分：4.8」「得分 4.5」「星级 5」
+//        ② 星号行「★★★★☆ 4.6」—— 数字必须**紧跟星号串**，否则同一行里的别的数字会被读成分
+//        ③ 星号与分数被拆成两行时（「★★★★☆」/「4.6」），允许一行只有一个 0–5 的数
+//   人均：①「¥65/人」「￥268 / 位」「¥1,280/人」
+//        ②「65元/人」「65 元/位」
+//        ③「人均 45」「人均：¥65」「人均消费 88」
+const RATING_WORD = /(?:评分|得分|星级|打分)\s*(?:[:：]|为|是)?\s*([0-5](?:\.\d)?)(?!\d)/;
+const RATING_STARS = /[★☆]+\s*([0-5](?:\.\d)?)(?!\d)/;
+const RATING_BARE_LINE = /^([0-5](?:\.\d)?)$/;
+const HAS_STARS = /[★☆]/;
+const PRICE_PATTERNS = [
+  /[¥￥]\s*(\d[\d,]*(?:\.\d+)?)\s*[/／]?\s*(?:人|位)/,
+  /(\d[\d,]*(?:\.\d+)?)\s*元\s*[/／]?\s*(?:人|位)/,
+  /人均(?:消费|价格|均价)?\s*(?:[:：]|为|是)?\s*[¥￥]?\s*(\d[\d,]*(?:\.\d+)?)/,
+];
+// 与 lib/server.ts 的 optionalNumber 同界：评分 0–5（保留一位小数），人均 0–100000（取整）。
+const RATING_MAX = 5;
+const PRICE_MAX = 100_000;
+
+export function textRating(text: string): number | null {
+  const word = text.match(RATING_WORD)?.[1] ?? text.match(RATING_STARS)?.[1];
+  if (word != null) {
+    const value = Number(word);
+    return value <= RATING_MAX ? value : null;
+  }
+  // 一行孤零零的「4.6」只有在文案里出现过星号时才敢当评分（否则数字可能属于别的字段）。
+  if (!HAS_STARS.test(text)) return null;
+  for (const line of text.split(/\n/)) {
+    const bare = line.trim().match(RATING_BARE_LINE);
+    if (bare) return Number(bare[1]);
+  }
+  return null;
+}
+
+export function textAvgPrice(text: string): number | null {
+  for (const pattern of PRICE_PATTERNS) {
+    const matched = text.match(pattern)?.[1];
+    if (matched == null) continue;
+    const value = Number(matched.replace(/,/g, ""));
+    if (Number.isFinite(value) && value > 0 && value <= PRICE_MAX) return Math.round(value);
+  }
+  return null;
 }
 
 function validPair(lat: number, lng: number) {
@@ -196,11 +248,14 @@ export function resolveSharedText(input: string): ResolvedPlace {
   const raw = input.trim().slice(0, 3000);
   const fields = bracketFields(raw);
   const texted = textAddress(raw);
+  const platformRating = textRating(raw);
+  const avgPrice = textAvgPrice(raw);
   const mini = raw.match(/#小程序:\/\/([^\s\n]+)/);
   if (mini) {
     const name = fields.names[0] || sharedName(raw.slice(0, mini.index));
     return {
-      name, address: fields.address || texted, lat: null, lng: null, sourceUrl: null,
+      name, address: fields.address || texted, lat: null, lng: null, platformRating, avgPrice,
+      sourceUrl: null,
       sourcePlatform: "微信小程序",
       message: name ? "已从分享文案提取名称。小程序口令不含公开坐标。" : "已识别微信小程序口令。口令本身不含店名和位置，请补填名称和地址。",
     };
@@ -209,12 +264,12 @@ export function resolveSharedText(input: string): ResolvedPlace {
   const match = raw.match(URL_RE);
   if (!match) {
     const name = fields.names[0] || raw.split(/[\n，,]/)[0]?.slice(0, 80) || "";
-    return { name, address: fields.address || texted, lat: null, lng: null, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称和地址。" };
+    return { name, address: fields.address || texted, lat: null, lng: null, platformRating, avgPrice, sourceUrl: null, sourcePlatform: "手动输入", message: "请确认名称和地址。" };
   }
 
   let url: URL;
   try { url = new URL(match[0].replace(/[.,;!?]+$/, "")); } catch {
-    return { name: "", address: "", lat: null, lng: null, sourceUrl: null, sourcePlatform: "网页链接", message: "链接格式无法识别，请手动填写。" };
+    return { name: "", address: "", lat: null, lng: null, platformRating, avgPrice, sourceUrl: null, sourcePlatform: "网页链接", message: "链接格式无法识别，请手动填写。" };
   }
   const host = url.hostname.toLowerCase();
   const platform = detectSourcePlatform({ url: url.toString(), text: raw }) || "网页链接";
@@ -250,7 +305,7 @@ export function resolveSharedText(input: string): ResolvedPlace {
   if (name.startsWith("http")) name = "";
   return {
     name: name.slice(0, 80), address: address.slice(0, 200),
-    lat: point?.[0] ?? null, lng: point?.[1] ?? null,
+    lat: point?.[0] ?? null, lng: point?.[1] ?? null, platformRating, avgPrice,
     sourceUrl: url.toString(), sourcePlatform: platform,
     message: point ? "已从地图链接识别地点和坐标，请核对后保存。" : "已保存来源链接。请核对店名、地址。",
   };

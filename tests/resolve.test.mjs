@@ -123,3 +123,56 @@ test("链接参数里的地址优先于文案分段", () => {
   assert.equal(result.name, "某店");
   assert.equal(result.address, "链接里的地址");
 });
+
+// 2026-10-03 用户反馈：大众点评链接粘进来能认店名和地址，却认不出文案里明摆着的评分和人均。
+// 判据按**形态**写、每种形态各给独立样例，避免再犯「被单个样例拟合」（见 Q30）。
+test("点评分享文案的评分：星号行、显式词、【】里的显式词、星号与分数分两行，四种形态都认得出", () => {
+  // 用户 2026-10-03 给的原始样例。
+  const star = resolveSharedText("【坐下kitchen】\n★★★★☆ 4.6\n¥65/人\n八卦岭/园岭 美食\n园岭新村88栋109\nhttps://m.dianping.com/shopinfo/G6Od940U9MovXrPa?msource=Appshare2021");
+  assert.equal(star.platformRating, 4.6);
+  assert.equal(star.avgPrice, 65);
+
+  const word = resolveSharedText("【某牛杂店】\n评分：4.8\n人均消费 88\n深圳南山区海德二道3009号正东名苑\nhttps://m.dianping.com/shopinfo/x");
+  assert.equal(word.platformRating, 4.8);
+  assert.equal(word.avgPrice, 88);
+
+  // 美团式「【评分：4.1】【人均：¥30】」分段。
+  const bracketed = resolveSharedText("【戊】\n【评分：4.1】【人均：¥30】\n深圳市福田区福华三路1号\nhttps://m.dianping.com/shopinfo/e");
+  assert.equal(bracketed.platformRating, 4.1);
+  assert.equal(bracketed.avgPrice, 30);
+
+  // 星号与分数之间有别的行：只靠「紧跟星号」不够，还要能认出一行孤零零的 0–5 数字。
+  const split = resolveSharedText("【己】\n★★★★☆\n八卦岭/园岭 甜品\n3.9\n深圳市福田区福华三路2号\nhttps://m.dianping.com/shopinfo/f");
+  assert.equal(split.platformRating, 3.9);
+});
+
+test("点评分享文案的人均：¥/人、￥/位带千分位、人均 45 元、元/人，四种形态都认得出", () => {
+  const perHead = resolveSharedText("【甲】\n★★★★☆ 4.2\n￥268 / 位\n地址：深圳市南山区科技园南路1号\nhttps://m.dianping.com/shopinfo/a");
+  assert.equal(perHead.avgPrice, 268);
+
+  const thousands = resolveSharedText("【乙】\n★★★★★ 4.9\n人均：¥1,280\n地址：深圳市南山区科技园南路2号\nhttps://m.dianping.com/shopinfo/b");
+  assert.equal(thousands.avgPrice, 1280);
+
+  const yuanWord = resolveSharedText("【丙】\n★★★☆☆ 3.5\n人均 45 元\n地址：深圳市南山区科技园南路3号\nhttps://m.dianping.com/shopinfo/c");
+  assert.equal(yuanWord.avgPrice, 45);
+
+  const perHeadYuan = resolveSharedText("【丁】\n★★★☆☆ 3.5\n45元/人\n地址：深圳市南山区科技园南路4号\nhttps://m.dianping.com/shopinfo/d");
+  assert.equal(perHeadYuan.avgPrice, 45);
+});
+
+test("文案里没有评分和人均就留空；电话号、门牌号、分店号都不会被当成这两个数", () => {
+  // 美团文案本来就只有地址和电话（用户 2026-10-03 实测确认）—— 两项都必须是 null，不能猜。
+  const meituan = resolveSharedText("【大富烧鸡大牌档（红岭店）】快来试试这家餐厅吧！ 【地址：罗湖区红桂二街23号大院】【电话：19879400958】@美团 http://dpurl.cn/AbE4HrAz");
+  assert.equal(meituan.platformRating, null);
+  assert.equal(meituan.avgPrice, null);
+
+  // 没有星号也没有「评分」时，数字不能被读成分（这里是分店号 3）。
+  const branch = resolveSharedText("【冰屋东园路3号店】\n地址：深圳市罗湖区东园路3号\nhttps://m.dianping.com/shopinfo/z");
+  assert.equal(branch.platformRating, null);
+  assert.equal(branch.avgPrice, null);
+
+  // 文案里有星号时最容易误伤 —— 门牌号里的 106 / 101 都不该变成评分或人均。
+  const doorplate = resolveSharedText("【庚】\n★★★★★\n推荐菜\n红荔路园岭新村106栋101-1\nhttps://m.dianping.com/shopinfo/g");
+  assert.equal(doorplate.platformRating, null);
+  assert.equal(doorplate.avgPrice, null);
+});

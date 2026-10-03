@@ -264,6 +264,9 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
       updateDraft(key, {
         name: value.name || "", address: value.address || "",
         lat: value.lat, lng: value.lng,
+        // 点评的分享文案里带评分和人均，一并预填；认不出就是空 —— 和截图识别同一种约定。
+        platformRating: value.platformRating != null ? String(value.platformRating) : "",
+        avgPrice: value.avgPrice != null ? String(value.avgPrice) : "",
         sourceUrl: value.sourceUrl, sourcePlatform: value.sourcePlatform, message: value.message,
       });
       let message = value.message;
@@ -540,7 +543,7 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
                 onChange={(event) => updateDraft(active.key, { platformRating: event.target.value })} placeholder="0–5，没有就留空" />
             </div>
           </div>
-          <p className="field-hint">平台评分与人均来自美团／大众点评截图，会过时，和群里自己的评分是两回事。</p>
+          <p className="field-hint">平台评分与人均来自美团／大众点评的截图或分享文案，会过时，和群里自己的评分是两回事。</p>
           <div className="location-heading">
             <div><span className="field-label">地图位置 <span>*</span></span><p>识别出地址后自动定位，地图仅作核对</p></div>
             <button type="button" className="text-button" onClick={locate}><Crosshair size={17} />用当前位置</button>

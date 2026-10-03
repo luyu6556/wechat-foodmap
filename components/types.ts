@@ -40,6 +40,9 @@ export type ResolvedPlace = {
   address: string;
   lat: number | null;
   lng: number | null;
+  // 平台评分与人均：点评的分享文案里带着，短链参数里没有；认不出是 null（留空手填，不当 0）。
+  platformRating: number | null;
+  avgPrice: number | null;
   sourceUrl: string | null;
   sourcePlatform: string;
   message: string;
