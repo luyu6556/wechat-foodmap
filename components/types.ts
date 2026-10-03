@@ -96,6 +96,9 @@ export type PollOption = {
   avgPrice: number | null;
   platformRating: number | null;
   averageRating: number | null;
+  // 地点还在才有坐标；已从地图删除的取不到，为 null（地图上就不画它）。
+  lat: number | null;
+  lng: number | null;
   deleted: boolean;
   count: number;
   votes: PollVote[];

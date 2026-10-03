@@ -12,6 +12,7 @@ type Props = {
   onSelect?: (id: string) => void;
   onBlankClick?: () => void;
   className?: string;
+  fitAll?: boolean;
 };
 
 type MapConfig = { provider: "amap" | "osm"; key?: string; useProxy?: boolean };

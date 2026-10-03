@@ -50,6 +50,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .food-map-marker > span { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
 .food-map-marker.is-selected { width: 42px; height: 42px; margin: -4px; box-shadow: 0 0 0 5px #fff8, 0 6px 15px #172c2970; }
 .food-map-marker.is-picked { --pin-color: var(--accent); }
+/* 投票地图：钉里直接写编号（＝投票项序号）。白字要配够深的底，所以这一类图钉固定用
+   --accent-dark（白字 4.72:1 达 AA），不用只作点缀、不承载白字的 --accent。
+   编号是图钉的子元素，反向旋转 45° 才站得正。 */
+.food-map-marker.has-label, .amap-food-pin.has-label { --pin-color: var(--accent-dark); }
+.food-map-marker.has-label, .amap-food-pin.has-label { display: grid; place-items: center; }
+.food-map-marker.has-label > span:not([class]) { display: none; }
+.amap-food-pin.has-label::after { display: none; }
+.food-map-marker-label, .amap-food-pin-label { transform: rotate(45deg); color: #fff; font-size: 13px; font-weight: 800; line-height: 1; }
 .leaflet-container { font-family: inherit; }
 .leaflet-control-attribution { font-size: 10px !important; }
 
@@ -323,6 +331,16 @@ body { background: #f4f5f3; }
 .poll-place-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; margin-top: 2px; padding: 0; border: 0; background: transparent; color: var(--iris-11); font-size: 13px; font-weight: 700; }
 .poll-bar { height: 9px; margin-top: 10px; overflow: hidden; border-radius: 9px; background: #edf0ed; }
 .poll-bar span { display: block; height: 100%; border-radius: inherit; background: var(--iris-9); transition: width .2s ease; }
+/* 候选分布地图：图钉上的数字＝下面选项的编号，点数字滚到对应卡片。 */
+.poll-map { margin-top: 15px; }
+.poll-map-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.poll-map-head h3 { margin: 0; font-size: 15px; }
+.poll-map-head span { flex: none; color: var(--muted); font-size: 12px; }
+.poll-map-canvas { height: 250px; border: 1px solid var(--line-strong); border-radius: 15px; overflow: hidden; }
+.poll-map-note { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+/* 选项编号徽标。深底白字用 --accent-dark（4.72:1 达 AA）。 */
+.poll-option-number { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 7px; border-radius: 50%; background: var(--accent-dark); color: #fff; font-size: 13px; font-weight: 800; line-height: 1; vertical-align: middle; }
+.poll-option.is-focused { border-color: var(--accent-dark); box-shadow: 0 0 0 2px #c8492d33, 0 1px 3px #172c290f; }
 .poll-voters { display: grid; gap: 8px; margin: 13px 0 0; }
 .poll-voter { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .poll-voter .member-avatar { width: 28px; height: 28px; font-size: 12px; }

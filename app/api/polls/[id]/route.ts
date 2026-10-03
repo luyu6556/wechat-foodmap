@@ -9,6 +9,7 @@ type PollRow = {
 type OptionRow = {
   placeId: string; name: string; address: string; cuisine: string;
   avgPrice: number | null; platformRating: number | null; averageRating: number | null;
+  lat: number | null; lng: number | null;
   deleted: number; sortOrder: number;
 };
 type VoteRow = {
@@ -36,6 +37,7 @@ export async function GET(request: Request, context: Context) {
         CASE WHEN pl.id IS NULL THEN o.place_platform_rating ELSE pl.platform_rating END AS platformRating,
         CASE WHEN pl.id IS NULL THEN o.place_average_rating
           ELSE (SELECT ROUND(AVG(r.score), 1) FROM ratings r WHERE r.place_id = pl.id) END AS averageRating,
+        pl.lat AS lat, pl.lng AS lng,
         (pl.id IS NULL) AS deleted, o.sort_order AS sortOrder
         FROM poll_options o LEFT JOIN places pl ON pl.id = o.place_id
         WHERE o.poll_id = ? ORDER BY o.sort_order, o.place_id`).bind(id),
@@ -61,6 +63,7 @@ export async function GET(request: Request, context: Context) {
       }));
       return { placeId: row.placeId, name: row.name, address: row.address, cuisine: row.cuisine,
         avgPrice: row.avgPrice, platformRating: row.platformRating, averageRating: row.averageRating,
+        lat: row.lat ?? null, lng: row.lng ?? null,
         deleted: !!row.deleted, count: optionVotes.length, votes: optionVotes };
     });
     const myVote = member ? votes.find((vote) => vote.memberId === member.id) : null;

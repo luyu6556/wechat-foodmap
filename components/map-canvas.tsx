@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import { normalizeColor } from "../lib/color";
 
-export type MapPlace = { id: string; name: string; lat: number; lng: number; color?: string };
+export type MapPlace = { id: string; name: string; lat: number; lng: number; color?: string; label?: string };
+
+// label 会进 innerHTML，所以要转义。当前调用方传的是自动生成的编号，
+// 但不能因为「现在只有数字」就把这个口子留着不设防。
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
+}
 
 type Props = {
   places?: MapPlace[];
@@ -14,9 +20,11 @@ type Props = {
   onSelect?: (id: string) => void;
   onBlankClick?: () => void;
   className?: string;
+  // 投票页用：初始视野永远收进全部点位，选中某个点也不跟着平移到它（免得地图乱跳）。
+  fitAll?: boolean;
 };
 
-export default function MapCanvas({ places = [], selectedId, focusId, picked, onSelect, onBlankClick, className = "" }: Props) {
+export default function MapCanvas({ places = [], selectedId, focusId, picked, onSelect, onBlankClick, className = "", fitAll }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Leaflet.Map | null>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
@@ -75,9 +83,12 @@ export default function MapCanvas({ places = [], selectedId, focusId, picked, on
     places.forEach((place) => {
       const selected = place.id === selectedId;
       const color = normalizeColor(place.color);
+      // 带 label 的图钉把编号写在图钉里（投票页），不带 label 的仍是「彩钉 + 白点」。
+      const inner = place.label ? `<span class="food-map-marker-label">${escapeHtml(place.label)}</span>` : "<span></span>";
+      const tint = place.label ? "" : ` style="--pin-color:${color}"`;
       const icon = L.divIcon({
         className: "food-map-marker-wrap",
-        html: `<span class="food-map-marker${selected ? " is-selected" : ""}" style="--pin-color:${color}"><span></span></span>`,
+        html: `<span class="food-map-marker${selected ? " is-selected" : ""}${place.label ? " has-label" : ""}"${tint}>${inner}</span>`,
         iconSize: [36, 42],
         iconAnchor: [18, 39],
       });
@@ -98,7 +109,7 @@ export default function MapCanvas({ places = [], selectedId, focusId, picked, on
       // 详情页「在地图中查看」跳过来的定位：居中并放大到该点。
       const target = places.find((place) => place.id === focusId);
       if (target) map.setView([target.lat, target.lng], Math.max(map.getZoom(), 16), { animate: true });
-    } else if (selectedId) {
+    } else if (selectedId && !fitAll) {
       const selected = places.find((place) => place.id === selectedId);
       if (selected) map.panTo([selected.lat, selected.lng], { animate: true });
     } else if (!initialFitRef.current && places.length) {
@@ -106,7 +117,7 @@ export default function MapCanvas({ places = [], selectedId, focusId, picked, on
       if (places.length === 1) map.setView([places[0].lat, places[0].lng], 14);
       else map.fitBounds(L.latLngBounds(places.map((place) => [place.lat, place.lng])), { padding: [35, 35], maxZoom: 14 });
     }
-  }, [ready, places, selectedId, focusId, picked]);
+  }, [ready, places, selectedId, focusId, picked, fitAll]);
 
   return <div ref={elementRef} className={`map-canvas ${className}`} aria-label="地点地图" />;
 }

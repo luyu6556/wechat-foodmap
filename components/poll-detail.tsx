@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Clipboard, ExternalLink, Share2, X } from "lucide-react";
 import { api, jsonBody } from "../lib/client-api";
 import { memberColorStyle } from "../lib/color";
 import { buildPollResultText } from "../lib/poll-text";
+import SharedMap from "./shared-map";
+import type { MapPlace } from "./map-canvas";
 import type { PollDetail as PollDetailData } from "./types";
 
 type Props = {
@@ -36,11 +38,29 @@ export default function PollDetail({ detail, onChanged, onClosed, onToast, onOpe
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [manualCopy, setManualCopy] = useState("");
+  // 图钉高亮的那一项。编号＝列表序号，点图钉就滚到对应卡片。
+  const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null);
   const { poll, options, my, notVoted, totalMembers } = detail;
   const totalVotes = options.reduce((sum, option) => sum + option.count, 0);
   const highest = Math.max(0, ...options.map((option) => option.count));
   const leaders = highest ? options.filter((option) => option.count === highest) : [];
   const open = poll.status === "open";
+
+  // 地图上的点：编号跟着完整列表走（第 1 项就是 1 号），已从地图删除的没有坐标、不画。
+  const mapPlaces = useMemo(() => {
+    const points: MapPlace[] = [];
+    options.forEach((option, index) => {
+      if (option.lat == null || option.lng == null) return;
+      points.push({ id: option.placeId, name: option.name, lat: option.lat, lng: option.lng, label: String(index + 1) });
+    });
+    return points;
+  }, [options]);
+  const missingCoordinates = options.length - mapPlaces.length;
+
+  function focusOption(placeId: string) {
+    setFocusedPlaceId(placeId);
+    document.getElementById(`poll-option-${placeId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
 
   function select(placeId: string) {
     setPendingPlaceId(placeId);
@@ -108,9 +128,17 @@ export default function PollDetail({ detail, onChanged, onClosed, onToast, onOpe
     </div>}
     {!open && highest === 0 && <div className="poll-outcome" role="status">本次投票无人投票</div>}
 
+    {mapPlaces.length > 0 && <section className="poll-map" aria-label="候选地点分布">
+      <div className="poll-map-head"><h3>候选分布</h3><span>编号与下面列表一致</span></div>
+      <SharedMap places={mapPlaces} selectedId={focusedPlaceId} onSelect={focusOption}
+        onBlankClick={() => setFocusedPlaceId(null)} className="poll-map-canvas" fitAll />
+      {missingCoordinates > 0 && <p className="poll-map-note">{missingCoordinates} 个候选已从地图删除，取不到坐标，没有画在图上。</p>}
+    </section>}
+
     <div className="poll-options">
-      {options.map((option) => <section className={`poll-option ${my?.placeId === option.placeId ? "is-mine" : ""}`} key={option.placeId}>
-        <div className="poll-option-title"><h3>{option.name}</h3><strong>{option.count} 票</strong></div>
+      {options.map((option, index) => <section id={`poll-option-${option.placeId}`}
+        className={`poll-option ${my?.placeId === option.placeId ? "is-mine" : ""}${focusedPlaceId === option.placeId ? " is-focused" : ""}`} key={option.placeId}>
+        <div className="poll-option-title"><h3><span className="poll-option-number">{index + 1}</span>{option.name}</h3><strong>{option.count} 票</strong></div>
         {option.deleted && <span className="poll-deleted">已从地图删除</span>}
         <p className="poll-option-address">{option.address || "地址待补充"}</p>
         <div className="poll-option-meta">
