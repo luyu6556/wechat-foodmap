@@ -374,10 +374,10 @@ body { background: #f4f5f3; }
 .poll-history-row span { color: var(--accent-dark); font-size: 13px; }
 .poll-history-row small { color: var(--muted); font-size: 12px; }
 .poll-load-more { width: 100%; min-height: 44px; margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--iris-11); font-weight: 700; }
-.poll-create-dialog { display: flex; flex-direction: column; width: min(100%, 540px); max-height: min(92dvh, 900px); border-radius: 18px; background: #fff; overflow: hidden; }
-.poll-create-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
-.poll-create-head h2 { margin: 0; font-size: 20px; }
-.poll-create-scroll { min-height: 0; padding: 17px; overflow-y: auto; }
+.poll-create-dialog, .feedback-dialog { display: flex; flex-direction: column; width: min(100%, 540px); max-height: min(92dvh, 900px); border-radius: 18px; background: #fff; overflow: hidden; }
+.poll-create-head, .feedback-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 17px; border-bottom: 1px solid var(--line); }
+.poll-create-head h2, .feedback-head h2 { margin: 0; font-size: 20px; }
+.poll-create-scroll, .feedback-scroll { min-height: 0; padding: 17px; overflow-y: auto; }
 .poll-presets { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 22px; }
 .poll-presets button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); color: var(--ink); font-size: 13px; }
 .poll-candidate-head h3 { margin: 0; font-size: 16px; }
@@ -396,9 +396,24 @@ body { background: #f4f5f3; }
 .poll-candidate small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .poll-check { flex: none; color: var(--iris-11); font-size: 13px; font-weight: 800; }
 .poll-add-place-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 11px; padding: 0; border: 0; background: transparent; color: var(--iris-11); font-size: 13px; font-weight: 750; }
-.poll-create-footer { padding: 12px 17px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #fff; }
-.poll-create-footer .primary-button { width: 100%; }
-@media (max-width: 430px) { .poll-create-dialog { max-height: 95dvh; } .poll-panel-nav { gap: 0; } .poll-nav-button { font-size: 13px; } }
+.poll-create-footer, .feedback-footer { padding: 12px 17px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: #fff; }
+.poll-create-footer .primary-button, .feedback-footer .primary-button { width: 100%; }
+/* 反馈弹窗：群主在表单上方还有一块「收到的反馈」。 */
+.feedback-inbox-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.feedback-inbox-head h3 { margin: 0; font-size: 16px; }
+.feedback-inbox-head span { flex: none; color: var(--muted); font-size: 12px; }
+.feedback-empty { margin: 0; color: var(--muted); font-size: 13px; }
+.feedback-item { display: flex; align-items: flex-start; gap: 9px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.feedback-item-main { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.feedback-item-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 9px; }
+.feedback-item-meta strong { font-size: 13px; }
+.feedback-item-meta small { color: var(--muted); font-size: 12px; }
+.feedback-item-main p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-delete { width: 38px; height: 38px; color: var(--accent-dark); }
+.feedback-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 14px; color: var(--muted); font-size: 12px; }
+.feedback-divider::before, .feedback-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.feedback-count { margin: 6px 0 0; color: var(--muted); font-size: 12px; text-align: right; }
+@media (max-width: 430px) { .poll-create-dialog, .feedback-dialog { max-height: 95dvh; } .poll-panel-nav { gap: 0; } .poll-nav-button { font-size: 13px; } }
 .detail-top-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .manage-menu { position: relative; }
 .manage-menu summary { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; cursor: pointer; list-style: none; }

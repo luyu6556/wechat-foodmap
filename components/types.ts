@@ -149,3 +149,13 @@ export type PollCandidate = {
   platformRating: number | null;
   averageRating: number | null;
 };
+
+// 群友提交的反馈。昵称与颜色是写入时的快照，不随成员改名而变。
+export type FeedbackItem = {
+  id: string;
+  memberId: string | null;
+  memberName: string;
+  memberColor: string;
+  body: string;
+  createdAt: number;
+};

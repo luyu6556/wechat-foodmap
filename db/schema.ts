@@ -119,3 +119,15 @@ export const pollVotes = sqliteTable("poll_votes", {
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [primaryKey({ columns: [table.pollId, table.memberId] })]);
+
+// 群友提交的问题反馈 / 改进建议。只有群主能读。
+// 提交人的昵称和颜色存成快照而不是每次 JOIN members —— 和 poll_options 一个道理：
+// 反馈要能独立成立，会员记录将来怎么变都不该让历史反馈失去作者。
+export const feedback = sqliteTable("feedback", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id"),
+  memberName: text("member_name").notNull().default(""),
+  memberColor: text("member_color").notNull().default(""),
+  body: text("body").notNull(),
+  createdAt: integer("created_at").notNull(),
+});

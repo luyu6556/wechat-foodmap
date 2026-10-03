@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Share2, Star, Users, X } from "lucide-react";
+import { Plus, MessageSquareMore, Share2, Star, Users, X } from "lucide-react";
 import { api } from "../lib/client-api";
 import { memberColorStyle } from "../lib/color";
 import AddPlaceDialog from "./add-place-dialog";
+import FeedbackDialog from "./feedback-dialog";
 import MapCanvas from "./shared-map";
 import PlaceDetail from "./place-detail";
 import PollPanel from "./poll-panel";
@@ -15,6 +16,7 @@ export default function FoodMapApp() {
   const [places, setPlaces] = useState<PlaceSummary[]>([]);
   const [member, setMember] = useState<Member | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -190,6 +192,7 @@ export default function FoodMapApp() {
     <header className="app-header compact-header">
       <h1>群聊美食地图</h1>
       <div className="header-actions">
+        <button className="header-share" onClick={() => setFeedbackOpen(true)} aria-label="反馈问题或改进建议"><MessageSquareMore size={21} /></button>
         <button className="header-share" onClick={() => void share()} aria-label="分享群地图"><Share2 size={21} /></button>
         {profileChecked && <button className="profile-trigger" onClick={() => setProfileOpen(true)} aria-label="修改我的昵称和颜色">
           <span className="member-avatar" style={memberColorStyle(member?.color)}>{member?.name.slice(0, 1) || "你"}</span>
@@ -247,6 +250,7 @@ export default function FoodMapApp() {
       onSaved={(next) => { setMember(next); setProfileOpen(false); void loadPlaces(); if (selectedId) void loadDetail(selectedId); }} />}
     {addOpen && <AddPlaceDialog onClose={() => setAddOpen(false)} onSaved={(id) => void savedPlace(id)}
       onBatchSaved={(ids) => void savedPlaces(ids)} />}
+    {feedbackOpen && <FeedbackDialog isOwner={!!member?.isOwner} onClose={() => setFeedbackOpen(false)} onToast={setToast} />}
     {selectedId && detailOpen && <PlaceDetail data={detail} loading={detailLoading} onClose={() => { setSelectedId(null); setDetail(null); setDetailOpen(false); }} onShowOnMap={showOnMap} onRefresh={refreshCurrent}
       onDeleted={async () => { setSelectedId(null); setDetail(null); setDetailOpen(false); await loadPlaces(); setPollRefreshNonce((current) => current + 1); setToast("地点已删除"); }} />}
     {toast && <div className="toast" role="status">{toast}</div>}
