@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Crosshair, ImageUp, Link2, ListChecks, MapPin, MapPinned, Sparkles, X } from "lucide-react";
 import { api, ApiError, jsonBody } from "../lib/client-api";
 import { preparePhoto } from "../lib/image-compress";
+// 判据模块（纯函数、不碰 Worker env），前端能直接引用：名称校正要在浏览器里判「差异大不大」。
+import { nameVariant } from "../lib/geo-match";
 import MapCanvas from "./shared-map";
 import type { LocatedPlace, PlaceCandidate, RecognizedPlace, ResolvedPlace } from "./types";
 
@@ -41,6 +43,8 @@ type Draft = {
   editingId: string | null;
   // 同品牌有多家门店时，服务端不替我们选，把候选交给用户挑 —— 选错分店的图钉和正确的长得一样。
   candidates: PlaceCandidate[];
+  // 名称被高德登记名校正过时的一句说明（差异小才自动改、差异大只提示）。用户一动名称框就清掉。
+  nameNotice: string;
 };
 
 type Props = {
@@ -61,6 +65,7 @@ function blankDraft(patch: Partial<Draft> = {}): Draft {
     cuisine: "", platformRating: "", ratingCount: "", avgPrice: "",
     lat: null, lng: null, sourceText: "", sourceUrl: null, sourcePlatform: "手动输入",
     rawText: "", stage: "", message: "", error: "", existingId: null, editingId: null, candidates: [],
+    nameNotice: "",
     ...patch,
   };
 }
@@ -131,6 +136,27 @@ async function runPool<T>(items: T[], limit: number, worker: (item: T) => Promis
   }));
 }
 
+// 高德登记名 vs 当前名称：差异小（差一个字，或一方包含另一方）就自动改，差异大只提示不改。
+// 高德登记的字是形近字错读的最佳兜底 —— 煵/璽/蘩/嚎 这几个字高德写的都是对的（识别端被
+// preparePhoto 压到长边 1600 后，店名行每个字只剩约 34px，火/木 这种只差两三笔的字分不开），
+// 而且顺带把繁简统一了。差异大时不动手，免得把用户不认识的店名硬换上来。
+function nameCorrection(currentName: string, candidateName: string): Partial<Draft> {
+  if (!currentName.trim() || !candidateName.trim()) return {};
+  const kind = nameVariant(currentName, candidateName);
+  if (kind === "near") {
+    return {
+      name: candidateName,
+      nameNotice: `已按高德登记名校正：${currentName} → ${candidateName}`,
+    };
+  }
+  if (kind === "far") {
+    return {
+      nameNotice: `高德登记的店名是「${candidateName}」，与识别结果差异较大，名称没有改动。`,
+    };
+  }
+  return {};
+}
+
 export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial }: Props) {
   const canBatch = !initial;
   const [drafts, setDrafts] = useState<Draft[]>(() => (initial ? [draftFromInitial(initial)] : [blankDraft()]));
@@ -179,7 +205,8 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
   // 返回提示文案，交给调用方拼进该条的说明。
   async function locateInto(key: string, look: { name: string; address: string }) {
     if (!look.name && !look.address) return "";
-    updateDraft(key, { stage: "locating", error: "", candidates: [] });
+    // 重新定位时先把上一次的名称提示清掉，免得留下一条对不上现状的说明。
+    updateDraft(key, { stage: "locating", error: "", candidates: [], nameNotice: "" });
     try {
       const result = await api<{ located: LocatedPlace }>("/api/geocode", {
         method: "POST",
@@ -187,7 +214,11 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
       });
       const value = result.located;
       if (value.lat !== null && value.lng !== null) {
-        updateDraft(key, { lat: value.lat, lng: value.lng, candidates: [] });
+        // 定位落定了，顺手用高德登记名校正展示名（差异小才改，见 nameCorrection）。
+        updateDraft(key, {
+          lat: value.lat, lng: value.lng, candidates: [],
+          ...nameCorrection(look.name, value.matchedName),
+        });
       } else {
         // 定位没落定：要么让用户从候选里挑一家，要么让他用「用当前位置」/手动坐标兜底。
         updateDraft(key, { lat: null, lng: null, candidates: value.candidates || [] });
@@ -286,11 +317,14 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
 
   // 用户从候选里挑一家：把它的坐标直接写进草稿，顺手用候选里更完整的地址替换掉
   // 分享文案里那半截（点评只给「东园大厦」，高德给的是「东园路3号…」）。
-  function pickCandidate(key: string, candidate: PlaceCandidate, fallbackAddress: string) {
+  // 名称也走同一条校正规则：同一家店换个措辞（小楠记/小煵记）就改，差得远就只提示。
+  function pickCandidate(key: string, candidate: PlaceCandidate, fallbackAddress: string,
+    currentName: string) {
     updateDraft(key, {
       lat: candidate.lat, lng: candidate.lng, candidates: [], error: "",
       address: candidate.address || fallbackAddress,
       message: `已选定「${candidate.name}」，请核对图钉位置。`,
+      ...nameCorrection(currentName, candidate.name),
     });
   }
 
@@ -466,6 +500,8 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
                         <span className={`draft-badge is-${status.tone}`}>{status.text}</span>
                       </span>
                       <span className="draft-line">{draft.address || "地址待补充"}</span>
+                      {/* 批量模式下第 2~5 条的名称可能被自动校正过，列表里也留一句，别让它悄悄变。 */}
+                      {draft.nameNotice && <span className="draft-line draft-line-note">{draft.nameNotice}</span>}
                       <span className="draft-line">
                         {[
                           draft.avgPrice ? `人均 ¥${draft.avgPrice}` : "",
@@ -503,7 +539,10 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
             <div className="field-block">
               <label className="field-label" htmlFor="place-name">地点名称 <span>*</span></label>
               <input className="text-field place-name-field" id="place-name" value={active.name} maxLength={80}
-                onChange={(event) => updateDraft(active.key, { name: event.target.value, error: "", candidates: [] })} placeholder="店名或想去的地方" />
+                onChange={(event) => updateDraft(active.key, { name: event.target.value, error: "", candidates: [], nameNotice: "" })} placeholder="店名或想去的地方" />
+              {/* 名称被高德登记名校正过（或差异过大没改）时的一句话说明。用户一改名称框就消失，
+                  免得提示和框里的字对不上。 */}
+              {active.nameNotice && <p className="name-notice" role="status">{active.nameNotice}</p>}
             </div>
             <div className="field-block">
               <label className="field-label" htmlFor="place-address">地址</label>
@@ -554,7 +593,7 @@ export default function AddPlaceDialog({ onClose, onSaved, onBatchSaved, initial
             <div className="candidate-list">
               {active.candidates.map((candidate, index) => <button type="button" className="candidate-row"
                 key={`${candidate.name}-${candidate.lat}-${index}`}
-                onClick={() => pickCandidate(active.key, candidate, active.address)}>
+                onClick={() => pickCandidate(active.key, candidate, active.address, active.name)}>
                 <span className="candidate-name">{candidate.name}</span>
                 <span className="candidate-address">{candidate.address || "地址未提供"}</span>
               </button>)}

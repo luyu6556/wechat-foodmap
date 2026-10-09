@@ -1,5 +1,8 @@
 import { env } from "cloudflare:workers";
 import { gcjToWgs } from "./resolve";
+// 判据全部抽到 geo-match.ts 的纯模块里：这个文件顶层 import 了 cloudflare:workers，
+// 判据留在里面就永远没法 node --test，前端组件也引用不了（名称校正要用的 nameVariant）。
+import { addressCorroborated, asText, baseOf, branchEvidence, branchOf, matchStrength } from "./geo-match";
 
 export type PlaceCandidate = {
   name: string;
@@ -29,7 +32,7 @@ const AMAP_REST = "https://restapi.amap.com/v3";
 const POI_CONFIDENCE = 90;
 const ADDRESS_CONFIDENCE = 70;
 
-// place/text 对任何关键词都会返回结果，必须拿名字复核（见 nameMatches）。
+// place/text 对任何关键词都会返回结果，必须拿名字复核（见 geo-match 的 matchStrength）。
 const POI_PAGE_SIZE = 5;
 
 // geocode/geo 的 level 直接说明命中了什么。判据用**黑名单**而不是白名单：
@@ -47,62 +50,10 @@ export function defaultCity() {
   return defaultCityValue();
 }
 
-// 「巴扎美食·新疆菜·西域歌舞表演餐厅(新疆大厦店)」 → 「巴扎美食新疆菜西域歌舞表演餐厅」
-function coreName(value: string) {
-  return value
-    .replace(/[（(][^（()）]*[)）]/g, "")
-    .replace(/[\s·・\-–—~、,，.。!！?？:：'"“”/\\|]/g, "")
-    .toLowerCase();
-}
-
-// 分店后缀必须单独留下来：coreName 会把「(东园路2号店)」整段删掉，于是「(东园路2号店)」和「(南山店)」
-// 变成同一个字符串，同名连锁的不同门店再也区分不开 —— 图钉会落到先返回的那家分店上。
-// 只取末尾的括号：店名中间的括号不是分店后缀。
-function branchOf(value: string) {
-  const match = value.match(/[（(]([^（()）]*)[)）]\s*$/);
-  return match ? coreName(match[1]) : "";
-}
-
-// 去掉末尾分店后缀后的主体名。
-function baseOf(value: string) {
-  return coreName(value.replace(/[（(][^（()）]*[)）]\s*$/, ""));
-}
-
-// 分店名去掉门牌号再比对：点评写「东园路2号店」、高德 POI 写「东园路3号」，是同一家店。
-// 反过来「南山店」不会因此被当成东园路那家。
-function branchKey(value: string) {
-  return coreName(value).replace(/[0-9a-z]+号?/g, "").replace(/店$/, "");
-}
-
-function branchMatches(wanted: string, candidateName: string, candidateAddress: string) {
-  const wantedKey = branchKey(wanted);
-  if (!wantedKey) return true; // 输入里没有可用的分店信息，只按主体名算。
-  const candidateBranch = branchOf(candidateName);
-  const pool = coreName(candidateName) + coreName(candidateAddress);
-  // 高德的 POI 名常常不带分店后缀，分店信息只出现在地址里（实测：「山葵烤肉by SHANKUI BBQ」
-  // 这条 POI 名字没有括号，地址却是「东园路3号…」），所以候选名和地址一起找。
-  if (!candidateBranch) return pool.includes(wantedKey);
-  const candidateKey = branchKey(candidateBranch);
-  if (!candidateKey) return pool.includes(wantedKey);
-  return candidateKey === wantedKey
-    || candidateKey.includes(wantedKey)
-    || wantedKey.includes(candidateKey);
-}
-
-// A POI search always returns *something*, so the result has to be checked against the name
-// we asked for. Without this the closed shop 「巴扎美食·新疆菜…」 matched 「清真新疆大巴扎美食」,
-// which is a different restaurant — a wrong pin looks exactly like a right one.
-function nameMatches(recognized: string, candidate: string) {
-  const wanted = coreName(recognized);
-  const found = coreName(candidate);
-  if (!wanted || !found) return false;
-  if (wanted === found || wanted.includes(found) || found.includes(wanted)) return true;
-  const pool = new Set(found);
-  const hit = [...new Set(wanted)].filter((char) => pool.has(char)).length;
-  return hit / new Set(wanted).size >= 0.7;
-}
-
-type AmapPoi = { name?: string; address?: string; location?: string };
+// 高德 place/text 即使在 extensions=base 下也会给 type（如「交通设施服务;停车场;公共停车场」）。
+// 字段一律按 unknown 收，再交给 asText 归一 —— 高德缺地址时给的是数组 `[]` 而不是空串
+// （实测：点评 29 号「电白鸭粥店(宝民二路店)」这条 POI 的 address 就是 `[]`）。
+type AmapPoi = { name?: unknown; address?: unknown; location?: unknown; type?: unknown };
 type AmapGeocode = { formatted_address?: string; location?: string; level?: string };
 
 // 高德是 "lng,lat"，百度是 {lat,lng} —— 顺序反了，别照抄。
@@ -153,64 +104,198 @@ async function amapJson(path: string, params: Record<string, string>) {
   return payload;
 }
 
-function collectHits(results: AmapPoi[], wanted: string): PlaceCandidate[] {
+// 「停车场」「出入口」类 POI 的名字里也带店名，会挤掉真正的餐厅 POI。
+// 实测（35 号「金泰食府（竹园店）」）：唯一名称吻合的 POI 是「金泰食府(竹园店)地上停车场」
+// （type=`交通设施服务;停车场;公共停车场`），真正那家叫「金泰燕翅鲍」——名字对不上主体名，
+// 会被 matchStrength 判成 none 挡掉，于是「停车场」成了唯一选择。十米误差本身不致命，但详情会显示
+// 「已定位到…地上停车场」，用户会以为定位错了。按高德给的 type 排除，宁可不定位也不给错名字。
+// 判据用 type 而非名字：名字里出现「停车场」也可能是别的说法，type 是结构化的、不会漂。
+const PARKING_TYPE_WORDS = ["停车场", "停车楼", "出入口"];
+
+function isParkingPoi(item: AmapPoi) {
+  const type = asText(item.type);
+  return PARKING_TYPE_WORDS.some((word) => type.includes(word));
+}
+
+// 一条候选，外加「它凭什么被收下」。这两件事必须分开存：名字只能说明「可能是同一个品牌」，
+// 地址才能说明「是同一处」。旧版把两者揉成一个布尔（nameMatches 一过就采用），于是高德拿品类词
+// 凑出来的店也能直接定图钉 —— 2026-10-08 的「小火璽 → 润园四季椰子鸡火锅」就是这么错到十几公里外的。
+type ScoredHit = {
+  hit: PlaceCandidate;
+  strength: "strong" | "weak" | "none";
+  addressCorroborated: boolean;
+  // 分店证据的三态（见 geo-match 的 branchEvidence）：verified 是强证据，mismatch 是反证。
+  branch: "verified" | "absent" | "mismatch";
+  // 来自「地址反查」那条补充检索（见 recallByAddress）。它只证明地址对得上，
+  // 没证明是同品牌的那家店 —— 所以永远不许直接采用，只能进候选让用户点。
+  recalled: boolean;
+};
+
+// 能不能不打扰用户、直接把图钉定下来。四条路任意一条走通即可，但**反证优先**：
+//   ⓪ 分店名明确对不上（mismatch）→ 直接否掉。文案写「深圳总店」、候选是「古城店」，
+//      主体名再像也不是同一家（实测：美团 33 号那家就是靠这条被正确挡住的）。
+//   ① 分店名明确对上了（verified）→ 采用。同品牌 + 同分店是很强的证据，比名字相似度可靠。
+//   ② 主体名强命中 → 采用（老行为）。
+//   ③ 地址对得上门牌级证据 → 采用。「品类词能骗过名字，骗不过门牌号」——这条是 2026-10-08
+//      「小火璽 → 润园四季椰子鸡火锅」错点位的正解：那家的名字重合率 0.714 过了旧门槛，
+//      但地址在罗湖、和文案的南山地址对不上，于是不再被采用。
+// 另外，地址反查找回来的候选一律不许直接采用（它只有地址证据，没验证过是不是同一家店）。
+function isAdoptable(item: ScoredHit) {
+  if (item.recalled) return false;
+  if (item.branch === "mismatch") return false;
+  return item.branch === "verified" || item.strength === "strong" || item.addressCorroborated;
+}
+
+// 候选列表的排序：能采用的排最前，然后分店对上的、主体名强的、地址佐证的依次往前。
+function byLikelihood(a: ScoredHit, b: ScoredHit) {
+  return Number(isAdoptable(b)) - Number(isAdoptable(a))
+    || Number(b.branch === "verified") - Number(a.branch === "verified")
+    || Number(b.strength === "strong") - Number(a.strength === "strong")
+    || Number(b.addressCorroborated) - Number(a.addressCorroborated);
+}
+
+// wantText = 文案里的店名 + 地址，供 branchMatches 做反向比对（候选分店名可能只写在文案地址里）。
+// address 单独收：地址佐证要拿它和候选地址比，不能混进 wantText 里。
+function collectHits(results: AmapPoi[], wanted: string, address: string): ScoredHit[] {
   const wantedBase = baseOf(wanted);
   const wantedBranch = branchOf(wanted);
-  const hits: PlaceCandidate[] = [];
+  const wantText = `${wanted}${address}`;
+  const hits: ScoredHit[] = [];
   for (const item of results) {
-    const parsed = parseLocation(item.location);
-    if (!item.name || !parsed) continue;
+    const name = asText(item.name);
+    const parsed = parseLocation(asText(item.location));
+    if (!name || !parsed) continue;
+    if (isParkingPoi(item)) continue;
+    const itemAddress = asText(item.address);
     // 只比主体名：分店差异放到 exactBranch 单独判，用来决定「能不能直接采用」。
-    if (!nameMatches(wantedBase, baseOf(item.name))) continue;
+    // 弱命中**照样收**（否则「换了个措辞的同一家」会整批漏掉），能不能采用留给 isAdoptable。
+    const strength = matchStrength(wantedBase, baseOf(name));
+    if (strength === "none") continue;
     const [lat, lng] = gcjToWgs(parsed[0], parsed[1]);
+    const corroborated = addressCorroborated(address, itemAddress);
+    const branch = branchEvidence(wantedBranch, name, itemAddress, wantText);
     hits.push({
-      name: item.name,
-      address: item.address || "",
-      lat,
-      lng,
-      exactBranch: branchMatches(wantedBranch, item.name, item.address || ""),
+      hit: {
+        name,
+        address: itemAddress,
+        lat,
+        lng,
+        // 对外的 exactBranch 保持旧语义：只有「分店名明确对不上」才是 false。
+        exactBranch: branch !== "mismatch",
+      },
+      strength,
+      addressCorroborated: corroborated,
+      branch,
+      recalled: false,
     });
   }
   return hits;
 }
 
+// 地址反查：名字这条路走不通时（识别把品类词并进店名、或高德登记名和文案名差得远），
+// 拿地址再搜一轮。**筛选门槛只有地址佐证** —— 名字正是这里不可信的那一侧，不能再拿它过滤，
+// 否则「小火璽」永远进不了候选（它的名字重合率只有 2/7）。
+// 代价是每次多一次 REST 调用，所以只在意向失败时才跑（见 recallIfNeeded）。
+async function recallByAddress(wanted: string, address: string, city: string): Promise<ScoredHit[]> {
+  const poi = await amapJson("/place/text", {
+    keywords: address, city, offset: String(POI_PAGE_SIZE), page: "1", extensions: "base",
+  });
+  const wantedBase = baseOf(wanted);
+  const wantedBranch = branchOf(wanted);
+  const wantText = `${wanted}${address}`;
+  const recalled: ScoredHit[] = [];
+  for (const item of (poi.pois || []) as AmapPoi[]) {
+    const name = asText(item.name);
+    const parsed = parseLocation(asText(item.location));
+    if (!name || !parsed) continue;
+    if (isParkingPoi(item)) continue;
+    const itemAddress = asText(item.address);
+    if (!addressCorroborated(address, itemAddress)) continue;
+    const [lat, lng] = gcjToWgs(parsed[0], parsed[1]);
+    const branch = branchEvidence(wantedBranch, name, itemAddress, wantText);
+    recalled.push({
+      hit: {
+        name,
+        address: itemAddress,
+        lat,
+        lng,
+        exactBranch: branch !== "mismatch",
+      },
+      strength: matchStrength(wantedBase, baseOf(name)),
+      addressCorroborated: true,
+      branch,
+      recalled: true,
+    });
+  }
+  return recalled;
+}
+
+// 只在这两种情况之外才多花一次地址反查：
+//   · 一条命中都没有 —— 老路径会用地址解析（geocode/geo）给一个图钉；改成让用户挑候选会把
+//     「自动命中」变少（实测基线：美团 33/40、点评 36/41、截图 44/49），那是另一种倒退。
+//   · 已经有且只有一条能采用 —— 这条路径后面就直接早返回了，搜了也白搜。
+// 于是触发面只剩「有命中、但一条都采用不了」—— 正是「小火璽」那类「名字被品类词污染」的形态。
+async function recallIfNeeded(hits: ScoredHit[], name: string, address: string, city: string) {
+  if (!address || !hits.length) return [];
+  if (hits.filter(isAdoptable).length === 1) return [];
+  return await recallByAddress(name, address, city);
+}
+
+// 两批候选按「店名 + 坐标」去重：同一家店在两次检索里都会返回。
+function mergeHits(primary: ScoredHit[], extra: ScoredHit[]) {
+  const seen = new Set(primary.map((item) => `${item.hit.name}|${item.hit.lat}|${item.hit.lng}`));
+  const merged = [...primary];
+  for (const item of extra) {
+    const key = `${item.hit.name}|${item.hit.lat}|${item.hit.lng}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged.sort(byLikelihood);
+}
+
 async function amapLocate(name: string, address: string, city: string): Promise<GeocodeResult> {
+  let hits: ScoredHit[] = [];
   if (name) {
     // 先按全名查（含分店后缀）：实测「山葵烤肉by SHANKUI BBQ(东园路2号店)」在高德只返回 1 条，
     // 正是东园路那家。全名查不到再退回主体名，覆盖点评和高德分店写法不一致的情况。
     let poi = await amapJson("/place/text", {
       keywords: name, city, offset: String(POI_PAGE_SIZE), page: "1", extensions: "base",
     });
-    let hits = collectHits((poi.pois || []) as AmapPoi[], name);
+    hits = collectHits((poi.pois || []) as AmapPoi[], name, address);
     const base = name.replace(/[（(][^（()）]*[)）]\s*$/, "").trim();
     if (!hits.length && base && base !== name) {
       poi = await amapJson("/place/text", {
         keywords: base, city, offset: String(POI_PAGE_SIZE), page: "1", extensions: "base",
       });
-      hits = collectHits((poi.pois || []) as AmapPoi[], name);
+      hits = collectHits((poi.pois || []) as AmapPoi[], name, address);
     }
+  }
 
-    if (hits.length) {
-      // 分店也一致的排前面，展示时更好挑。
-      hits.sort((a, b) => Number(b.exactBranch) - Number(a.exactBranch));
-      const exact = hits.filter((hit) => hit.exactBranch);
-      if (exact.length === 1) {
-        // 唯一一家主体名和分店都对得上 —— 和改动前一样直接采用，不打扰用户。
-        return {
-          lat: exact[0].lat, lng: exact[0].lng, source: "poi", confidence: POI_CONFIDENCE,
-          matchedName: exact[0].name, candidates: [],
-          message: `已按店名定位到「${exact[0].name}」，请核对图钉位置。`,
-        };
-      }
-      // 要么多家都精确命中，要么只找到同品牌的其他分店 —— 两种情况下「选第一家」都是错的选择。
-      return {
-        lat: null, lng: null, source: "none", confidence: 0, matchedName: "",
-        candidates: hits.slice(0, POI_PAGE_SIZE),
-        message: exact.length > 1
-          ? "找到多家同名的店，请选择正确的那家。"
-          : "没找到这家分店，下面是同品牌的其他门店，请选一家。",
-      };
-    }
+  // 名字这条路走不通时，再用地址补一批候选（见 recallByAddress）。合并后统一排序。
+  hits = mergeHits(hits, await recallIfNeeded(hits, name, address, city));
+
+  const adoptable = hits.filter(isAdoptable);
+  if (adoptable.length === 1) {
+    // 唯一一家名字和分店都对得上、且地址也站得住 —— 直接采用，不打扰用户。
+    const { hit } = adoptable[0];
+    return {
+      lat: hit.lat, lng: hit.lng, source: "poi", confidence: POI_CONFIDENCE,
+      matchedName: hit.name, candidates: [],
+      message: `已按店名定位到「${hit.name}」，请核对图钉位置。`,
+    };
+  }
+
+  if (hits.length) {
+    // 三种情况都落到这里：多家精确命中、只找到同品牌的其他分店、以及「名字对得上但地址不佐证」
+    // （小火璽那类）。「选第一家」在三种情况下都是错的，所以一律交给用户挑。
+    return {
+      lat: null, lng: null, source: "none", confidence: 0, matchedName: "",
+      candidates: hits.slice(0, POI_PAGE_SIZE).map((item) => item.hit),
+      message: adoptable.length > 1
+        ? "找到多家同名的店，请选择正确的那家。"
+        : "没能确定到唯一一家（店名或地址对不上），下面是可能的门店；都不是就手动输入坐标。",
+    };
   }
 
   if (address) {

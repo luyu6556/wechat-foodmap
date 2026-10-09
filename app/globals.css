@@ -446,6 +446,10 @@ body { background: #f4f5f3; }
 .verify-block.is-verify .field-block:last-child { margin-bottom: 0; }
 .verify-block.is-verify .place-name-field { font-size: 17px; font-weight: 750; }
 .verify-block.is-verify .place-address-field { font-weight: 600; }
+/* 名称校正提示：紧贴在名称框下面，用的是与上面 .field-label 同一档暖棕（不引入新色值）。
+   长句要能换行 —— 提示里带着「旧名 → 新名」两个店名，nowrap 会被截掉一半。 */
+.name-notice { margin: 6px 0 0; color: #7c4a36; font-size: 13px; line-height: 1.55; }
+.verify-block.is-verify .name-notice { font-weight: 600; }
 /* 两个导入入口等宽并排：在「怎么导入」这件事上它们是平级的两条路，不该一上一下。
    窄屏下每边约 146px，14px 字号才放得下「识别分享内容」六个字加图标。 */
 .import-panel .import-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; margin-top: 11px; }
@@ -475,6 +479,9 @@ body { background: #f4f5f3; }
 .draft-head strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; line-height: 1.3; font-weight: 750; }
 .draft-line { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .draft-line-bad { color: var(--red-11); white-space: normal; }
+/* 名称被自动校正（或差异过大只提示）时的一句说明。用与 .verify-block 里 .field-label 同一档
+   暖棕 #7c4a36（在 --accent-soft 上约 5–6.5:1 达 AA），不引入新色值；长提示要允许换行。 */
+.draft-line-note { color: #7c4a36; white-space: normal; }
 .draft-side { display: flex; flex: none; align-items: center; }
 .draft-badge { flex: none; padding: 3px 8px; border-radius: 30px; font-size: 12px; font-weight: 750; white-space: nowrap; }
 .draft-badge.is-muted { background: #eef1ee; color: var(--muted); }
