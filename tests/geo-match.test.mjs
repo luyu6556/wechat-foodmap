@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  addressArbitrated,
   addressCorroborated,
   addressCore,
   asText,
@@ -8,6 +9,9 @@ import {
   branchMatches,
   coreName,
   editDistance,
+  houseLevelOverlap,
+  longestCommon,
+  longestCommonText,
   matchStrength,
   nameMatches,
   nameVariant,
@@ -86,6 +90,84 @@ test("addressCorroborated 对照组 B：跨区/空地址一律不算", () => {
   assert.equal(addressCorroborated("深圳市南山区创业路1777号", "深圳市罗湖区人民南路1002号"), false);
   assert.equal(addressCorroborated("", "创业路1号"), false);
   assert.equal(addressCorroborated("创业路1号", ""), false);
+});
+
+// ── 门牌号要求（2026-10-09 新增，见 houseLevelOverlap）─────────────────────────
+
+test("addressCorroborated：公共片段必须带门牌号（三种形态）", () => {
+  // 形态一：阿拉伯数字门牌 —— 深圳西丽「电白鸭粥店」的真身就是这样对上的
+  assert.equal(addressCorroborated("同沙路新围村188栋底商", "西丽街道同沙路新围村188栋底商"), true);
+  // 形态二：中文数字门牌（「田贝四路」的「四」、万山珠宝广场「负一楼」的「一」）
+  assert.equal(addressCorroborated("罗湖区田贝四路万山珠宝广场负一楼", "田贝四路万山珠宝广场"), true);
+  // 形态三：只共享商场名 —— 长度 7 字足够，但没有一个门牌号 → 不算
+  assert.equal(
+    addressCorroborated("文心五路33号海岸城购物中心5楼530商铺", "万丰中路245号万丰海岸城购物中心沙井南环路店F6层"),
+    false,
+  );
+});
+
+test("houseLevelOverlap：长度和门牌号两个条件都要满足", () => {
+  assert.equal(houseLevelOverlap("宝岗路100号", "宝岗路100号宝安广场"), true);
+  // 7 字公共片段、全是场所名 → 长度够也不算（旧判据在这里会放行沙井那家）
+  assert.equal(houseLevelOverlap("文心五路33号海岸城购物中心", "万丰海岸城购物中心沙井南环路店"), false);
+  // 4 字即使带数字也不够长（「笋岗东路」那条门槛没放松）
+  assert.equal(houseLevelOverlap("笋岗东路12号", "笋岗东路34号"), false);
+  assert.equal(houseLevelOverlap("", "任何地址"), false);
+});
+
+test("longestCommonText：返回的是片段本体，不只是长度", () => {
+  assert.equal(longestCommonText("宝岗路100号宝安广场", "宝岗路100号"), "宝岗路100号");
+  assert.equal(longestCommonText("海岸城购物中心", ""), "");
+  // 本体和长度必须对得上（longestCommon 是同一套 DP 的长度口径）
+  assert.equal(longestCommonText("宝岗路100号宝安广场", "宝岗路100号").length,
+    longestCommon("宝岗路100号宝安广场", "宝岗路100号"));
+});
+
+test("branchEvidence 判据④：兜底也要带门牌号，商场名不作数", () => {
+  // 走到④的前提：分店关键词太短（走不到②）、候选分店名也接不上③。
+  // 候选是沙井那家「万丰海岸城购物中心店」，两侧只在商场名「海岸城购物中心」(7 字) 上重合、
+  // 没有一个门牌号共享 → mismatch。旧判据 7 ≥ 5 会判 verified，那就把沙井的图钉钉上去了。
+  assert.equal(
+    branchEvidence("文心五路店", "费大厨辣椒炒肉(万丰海岸城购物中心店)",
+      "万丰中路245号万丰海岸城购物中心沙井南环路店F6层",
+      "费大厨辣椒炒肉(海岸城店)文心五路33号海岸城购物中心5楼530商铺"),
+    "mismatch",
+  );
+  // 对照：真共享门牌号（含中文数字）→ verified
+  assert.equal(
+    branchEvidence("水贝店", "建辉酒家", "罗湖区田贝四路万山珠宝广场负一楼",
+      "建辉酒家水贝店田贝四路万山珠宝广场负一楼"),
+    "verified",
+  );
+});
+
+// ── addressArbitrated（多条可采用时的地址仲裁）──────────────────────────────
+
+test("addressArbitrated：多条都能采用时，只认恰好一条门牌级地址佐证", () => {
+  const hit = (name, { corroborated, branch = "absent", strength = "strong" }) =>
+    ({ hit: { name }, addressCorroborated: corroborated, branch, strength });
+  // 唯一一条地址对得上 → 采用它。recalled 的那条照样参赛：它常是唯一能对上门牌号的那条
+  // （「电白鸭粥店」真身就是这样被挡在候选列表之外的）。
+  const unique = addressArbitrated([
+    hit("福民电白鸭粥店(福民店)", { corroborated: false }),
+    hit("电白鸭粥店", { corroborated: true }),
+    hit("电白鸭粥店(深职店)", { corroborated: false }),
+  ]);
+  assert.equal(unique?.hit.name, "电白鸭粥店");
+  // 两条地址都对得上 → 连地址都分不开，不许替用户做主
+  assert.equal(addressArbitrated([
+    hit("A店", { corroborated: true }), hit("B店", { corroborated: true }),
+  ]), null);
+  // 一条都没有 → 不仲裁
+  assert.equal(addressArbitrated([hit("A店", { corroborated: false })]), null);
+  // 反证优先：分店名明确对不上（mismatch）的那条，不许被仲裁推上去
+  assert.equal(addressArbitrated([
+    hit("A店", { corroborated: true, branch: "mismatch" }), hit("B店", { corroborated: false }),
+  ]), null);
+  // 名字完全不接的（strength none）也不许——仲裁是「名字已用尽」的出口，不是绕过名字
+  assert.equal(addressArbitrated([
+    hit("A店", { corroborated: true, strength: "none" }), hit("B店", { corroborated: false }),
+  ]), null);
 });
 
 test("addressCore 剥掉省/市/区/街道，剥空就返回空串", () => {

@@ -75,6 +75,40 @@ export function longestCommon(a: string, b: string) {
 // 「宝岗路100号」7 字、命中；「笋岗东路」4 字、不命中（33 号那家 VGM 广场店就靠这条被正确挡住）。
 export const ADDRESS_MATCH_MIN = 5;
 
+// 最长公共子串的**本体**。只拿到长度不够用 —— 还要看这段公共内容到底是不是门牌号。
+export function longestCommonText(a: string, b: string) {
+  if (!a || !b) return "";
+  let best = "";
+  let prev = new Array<number>(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = new Array<number>(b.length + 1).fill(0);
+    for (let j = 1; j <= b.length; j += 1) {
+      if (a[i - 1] === b[j - 1]) {
+        current[j] = prev[j - 1] + 1;
+        if (current[j] > best.length) best = b.slice(j - current[j], j);
+      }
+    }
+    prev = current;
+  }
+  return best;
+}
+
+// 「门牌级」证据必须带门牌号（阿拉伯或中文数字）。**只卡长度是不够的**：
+// 2026-10-09 实测「文心五路33号海岸城购物中心5楼530商铺」对
+// 「万丰中路245号万丰海岸城购物中心沙井南环路店F6层」，最长公共子串是「海岸城购物中心」
+// 7 字，轻轻松松过了 5 字门槛 —— 可沙井那家和南山这家差了十几公里。它共享的是**商场名**，
+// 不是门牌号。
+// 反过来，真同一处的地址一定共享门牌号：「宝岗路100号」「同沙路新围村188栋底商」「田贝四路」
+// （「四」是中文数字，同样算）。所以这里只认「公共片段里出现过数字」。
+// 代价（已知且接受）：纯场所名的地址从此不算佐证 —— 但这条判据是**兜底**（①②③都不成立才跑），
+// 收紧它最坏只是「少一次自动定位、多弹一次候选」，不会给出错误图钉。
+export const ADDRESS_NUMERAL_RE = /[0-9一二三四五六七八九十]/;
+
+export function houseLevelOverlap(a: string, b: string) {
+  const shared = longestCommonText(a, b);
+  return shared.length >= ADDRESS_MATCH_MIN && ADDRESS_NUMERAL_RE.test(shared);
+}
+
 // 「只看候选地址」判定需要的最短分店名。2 字的分店名常常本身就是行政区/街道名，而高德地址里
 // 满地都是街道名 —— 实测回归：美团「先记烧鹅王·本地粤菜(福永店)」的分店名去掉后缀只剩「福永」，
 // 而「福永」是宝安街道名，命中了同街道另一家分店「(立新湖酒楼)」的地址，于是从「唯一命中」
@@ -132,10 +166,9 @@ export function branchEvidence(wanted: string, candidateName: string, candidateA
   if (candidateKey && (candidateKey === wantedKey || candidateKey.includes(wantedKey)
     || wantedKey.includes(candidateKey))) return "verified";
 
-  // 兜底：地址撞到门牌级证据。注意这里**只比地址**，且门槛卡在 5 字 ——
-  // 「宝岗路100号」(7 字) 算同一处，「笋岗东路」(4 字) 只是同一条路，不足以断言。
-  return longestCommon(wantSide, candidateAddressPlain) >= ADDRESS_MATCH_MIN
-    ? "verified" : "mismatch";
+  // 兜底：地址撞到门牌级证据。注意这里**只比地址**，且要求公共片段带门牌号（见 houseLevelOverlap）——
+  // 「宝岗路100号」算同一处，「笋岗东路」只是同一条路，而「海岸城购物中心」只是同一个商场名。
+  return houseLevelOverlap(wantSide, candidateAddressPlain) ? "verified" : "mismatch";
 }
 
 // 兼容布尔调用的包装：只有 mismatch 才算「不是这家」。
@@ -189,7 +222,7 @@ export function addressCore(value: string) {
   return rest;
 }
 
-// 地址佐证：两侧地址在**街巷层**有 ≥5 字的共同片段（门牌级证据）才算。
+// 地址佐证：两侧地址在**街巷层**有 ≥5 字、**且带门牌号**的共同片段才算。
 // 这是 weak 命中能否自动采用的**第二个必要条件**，也是「不加品类词黑名单」的兜底 ——
 // 品类词可以骗过名字，但骗不过门牌号。
 export function addressCorroborated(address: string, candidateAddress: string): boolean {
@@ -199,7 +232,24 @@ export function addressCorroborated(address: string, candidateAddress: string): 
   // 剥完前缀后短于门槛的一侧根本没有可比内容，直接不算证据（否则「深圳市南山区」对
   // 「深圳市南山区」都会命中 6 字）。
   if (a.length < ADDRESS_MATCH_MIN || b.length < ADDRESS_MATCH_MIN) return false;
-  return longestCommon(a, b) >= ADDRESS_MATCH_MIN;
+  return houseLevelOverlap(a, b);
+}
+
+// 定位仲裁：同名连锁靠**主体名**根本分不开 —— 实测「电白鸭粥店」全市 26 家，站点只取前 5 条
+// 就全是 strong；文案名不带分店后缀（branch = absent），名字这一侧已经用尽。
+// 这时唯一能定音的是**门牌级地址佐证**，但必须**恰好落在一条**候选上，否则宁可不选：
+// 两条以上地址都能对上，说明连地址都分不开，那仍然该交用户挑。
+//
+// ⚠️ 它接受地址反查找回来的候选（recalled）。那条恰恰是唯一能对上门牌号的 ——
+// 实测「电白鸭粥店」的正身就在反查结果里（地址「西丽街道同沙路新围村188栋底商」与文案近乎
+// 逐字相同），却被「recalled 一律不许采用」和 `candidates.slice(0, 5)` 双重挡在用户视野之外，
+// 用户连点都点不到。仲裁是它唯一的出口，所以这里不排除 recalled。
+export type AddressSupport = { addressCorroborated: boolean; branch: string; strength: string };
+
+export function addressArbitrated<T extends AddressSupport>(hits: readonly T[]): T | null {
+  const supported = hits.filter((item) => item.addressCorroborated
+    && item.branch !== "mismatch" && item.strength !== "none");
+  return supported.length === 1 ? supported[0] : null;
 }
 
 // Levenshtein 距离，只用于「差一个字」这一档判断，字符串都很短（店名 ≤ 80 字）。

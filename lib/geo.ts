@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { gcjToWgs } from "./resolve";
 // 判据全部抽到 geo-match.ts 的纯模块里：这个文件顶层 import 了 cloudflare:workers，
 // 判据留在里面就永远没法 node --test，前端组件也引用不了（名称校正要用的 nameVariant）。
-import { addressCorroborated, asText, baseOf, branchEvidence, branchOf, matchStrength } from "./geo-match";
+import { addressArbitrated, addressCorroborated, asText, baseOf, branchEvidence, branchOf, matchStrength } from "./geo-match";
 
 export type PlaceCandidate = {
   name: string;
@@ -284,6 +284,20 @@ async function amapLocate(name: string, address: string, city: string): Promise<
       matchedName: hit.name, candidates: [],
       message: `已按店名定位到「${hit.name}」，请核对图钉位置。`,
     };
+  }
+
+  // 多条都「可采用」→ 名字这一侧已经分不开了（同名连锁：实测「电白鸭粥店」全市 26 家），
+  // 改用门牌级地址佐证定音（见 geo-match 的 addressArbitrated）。只在**恰好一条**满足时采用。
+  if (adoptable.length > 1) {
+    const arbitrated = addressArbitrated(hits);
+    if (arbitrated) {
+      const { hit } = arbitrated;
+      return {
+        lat: hit.lat, lng: hit.lng, source: "poi", confidence: POI_CONFIDENCE,
+        matchedName: hit.name, candidates: [],
+        message: `已按店名与门牌级地址比对定位到「${hit.name}」，请核对图钉位置。`,
+      };
+    }
   }
 
   if (hits.length) {
